@@ -10,6 +10,8 @@ import "react-datepicker/dist/react-datepicker.css"
 import { X, Calendar } from "lucide-react"
 import { loadingOff, loadingOn } from '../store/authSlice'
 import { getData, getCases, getCounties } from '../services/main';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 // Filter section component
 const FilterSection = ({ title, options, expanded, onToggle, onFilterChange }) => {
@@ -498,9 +500,27 @@ export const MailMerge = () => {
   const handleExport = () => {
   }
 
+  const formattedData = caseData.map(item => ({
+    ID: item.Case.id,
+    CaseCategoryKey: item.Case.CaseCategoryKey,
+    CaseCategoryGroup: item.Case.CaseCategoryGroup,
+    CaseNumber: item.Case.CaseNumber,
+    Court: item.Case.Court,
+  }));
+
   const handleMailMerge = () => {
-    console.log("handleMailMerge");
+    exportTableToExcel(formattedData);
   }
+
+  const exportTableToExcel = (data, filename = 'export.xlsx') => {
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const file = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(file, filename);
+  };
 
   const gotoPage = () => {
 

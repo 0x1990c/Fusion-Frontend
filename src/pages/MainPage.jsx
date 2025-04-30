@@ -16,7 +16,9 @@ import {
   AlertCircle, 
   Gavel, 
   Search,
-  FileText } from "lucide-react"
+  FileText, 
+  Pencil, 
+  Plus} from "lucide-react"
 
 import DateInterval from "../components/mainpage/DateInterval"
 import { loadingOff, loadingOn } from '../store/authSlice'
@@ -47,11 +49,22 @@ export const MainPage = () => {
   const [filterText, setFilterText] = useState("")
   const [selectedCases, setSelectedCases] = useState([])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [activeTab, setActiveTab] = useState(0);
+  const [saveFolder, setSaveFolder] = useState('\\\\Mac\\Home\\Documents\\MailMerges');
+  const [templates, setTemplates] = useState([
+    { id: 1, name: 'Criminal Letter' },
+    { id: 2, name: 'Envelop' },
+  ]);
+  const [exclusionType, setExclusionType] = useState('Case Type');
+  const [input, setInput] = useState('');
+  const [items, setItems] = useState(['WE']);
+  const [selectedIndex, setSelectedIndex] = useState(null);
 
   const dispatch = useDispatch()
   const totalCases = caseTypes.reduce((sum, court) => sum + court.count, 0)
-
   const navigate = useNavigate()
+  const tabs = ['Mail Merge', 'Mail Merge Exclusions', 'Billing'];
+  const MAX_SELECTIONS = 3
 
   useEffect(() => {
     const handleResize = () => {
@@ -71,7 +84,6 @@ export const MainPage = () => {
   }
 
   const handleSettings = () => {
-    // 
     dispatch(loadingOn());
     fetchCounties();
 
@@ -124,8 +136,6 @@ export const MainPage = () => {
     organizeCases(casesData.cases);
     dispatch(loadingOff());
   };
-
-  const MAX_SELECTIONS = 3
 
   const organizeCases = (casesData) => {
 
@@ -254,6 +264,68 @@ export const MainPage = () => {
     }
   }
 
+  const handleDelete = (id) => {
+    setTemplates(templates.filter(template => template.id !== id));
+  };
+
+  const handleEdit = (id) => {
+    const name = prompt('Edit template name:');
+    if (name) {
+      setTemplates(
+        templates.map(t => (t.id === id ? { ...t, name } : t))
+      );
+    }
+  };
+
+  const handleAddTemplate = () => {
+    const name = prompt('New template name:');
+    if (name) {
+      setTemplates([...templates, { id: Date.now(), name }]);
+    }
+  };
+
+  const handleAddItem = () => {
+    if (input.trim()) {
+      setItems([...items, input.trim()]);
+      setInput('');
+    }
+  };
+
+  const handleRemove = () => {
+    if (selectedIndex !== null) {
+      setItems(items.filter((_, index) => index !== selectedIndex));
+      setSelectedIndex(null);
+    }
+  };
+
+  const handleFolderSelect = async () => {
+    try {
+      const directoryHandle = await window.showDirectoryPicker();
+      const fullPath = await getFullPath(directoryHandle);
+      
+      setSaveFolder(fullPath);
+    } catch (error) {
+      console.error('Error selecting folder:', error);
+    }
+  };
+
+  const getFullPath = async (directoryHandle) => {
+    let pathParts = [];
+
+    // Collect the names of the directories
+    while (directoryHandle) {
+      pathParts.unshift(directoryHandle.name); // Add the current directory name to the beginning of the array
+      // Attempt to get the parent directory
+      try {
+        directoryHandle = await directoryHandle.getParent();
+      } catch {
+        directoryHandle = null; // No parent found
+      }
+    }
+
+    return pathParts.join('/'); // Join parts to form a simulated full path
+  };
+
   const scrollbarStyles = `
     .custom-scrollbar::-webkit-scrollbar {
       width: 8px;
@@ -292,7 +364,6 @@ export const MainPage = () => {
       color: rgba(255, 255, 255, 0.5);
     }
   `
-
   return (
     <div className="bg-gray-100 min-h-screen p-4">
       <div className="flex justify-start flex-row pt-1 pb-1 box-border items-center">
@@ -525,88 +596,202 @@ export const MainPage = () => {
 
       {/* Settings Panel */}
       {showSettingsPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <style>{scrollbarStyles}</style>
-          <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg">
-            <div className="flex items-center gap-2 text-lg font-medium mb-4">
-              <FileText className="h-5 w-5" />
-              <span>{selectedCases.length} selected</span>
-              {selectedCases.length >= MAX_SELECTIONS && (
-                <span className="text-sm text-amber-500 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" />
-                  Maximum selections reached
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Left panel with scrollable case types */}
-              <div className="w-full md:w-[400px] bg-blue-700 text-white rounded-md overflow-hidden">
-                <div className="p-4 border-b border-white/10">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
-                    <input
-                      type="text"
-                      placeholder="Filter case types..."
-                      value={filterText}
-                      onChange={(e) => setFilterText(e.target.value)}
-                      className="search-input pl-10"
-                    />
-                  </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" >    
+          <div style={styles.tabs}>
+            <ul style={styles.tabList}>
+              {tabs.map((tab, index) => (
+                <li
+                  key={index}
+                  style={{
+                    ...styles.tab,
+                    ...(activeTab === index ? styles.activeTab : {}),
+                  }}
+                  onClick={() => setActiveTab(index)}
+                >
+                  {tab}
+                </li>
+              ))}
+            </ul>
+            <div style={styles.tabContent}>
+              <style>{scrollbarStyles}</style>
+              {activeTab === 0 && 
+              <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-md ">
+                <label className="block font-semibold mb-1 text-blue-700">Mail Merge Save Folder</label>
+                <div className="flex items-center mb-4">
+                  <input
+                    type="text"
+                    className="border rounded-l px-3 py-1 w-full"
+                    value={saveFolder}
+                    onChange={(e) => setSaveFolder(e.target.value)}
+                  />
+                  <button className="bg-gray-200 border rounded-r px-3 py-1" onClick={handleFolderSelect}>...</button>
                 </div>
-                {/* Custom scroll area with custom scrollbar styles */}
-                <div className="h-[400px] w-full overflow-y-auto custom-scrollbar">
-                  <div className="p-6">
-                    {filteredCaseTypes.length > 0 ? (
-                      filteredCaseTypes.map((caseType) => (
-                        <div key={caseType.id} className="flex items-center mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center">
-                              <Gavel className="h-4 w-4 mr-2" />
-                              <span className="ml-2">{caseType.name}</span>
+                <label className="block font-semibold mb-2 text-blue-700">Mail Merge Templates</label>
+                <div className="h-[350px] w-full overflow-y-auto custom-scrollbar border rounded p-2 bg-gray-50 overflow-hidden">
+                  {templates.map((template) => (
+                    <div key={template.id} className="flex justify-between items-center border-b last:border-none py-2">
+                      <span>{template.name}</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(template.id)} className="text-blue-600">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => handleDelete(template.id)} className="text-red-600">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddTemplate}
+                    className="flex items-center gap-1 text-sm text-blue-700 mt-2"
+                  >
+                    <Plus size={16} /> Add Template
+                  </button>
+                </div>
+                <div className='flex justify-center'>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
+                    Save
+                  </button>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>}
+              {activeTab === 1 && 
+              <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-md">
+                <fieldset className="border p-4 mb-4">
+                  <legend className="text-blue-700 font-semibold">Exclusion</legend>
+                  {['Case Type', 'Party Name', 'Offense Description', 'Case Number'].map((type) => (
+                    <div key={type} className="flex items-center mb-2">
+                      <input
+                        type="radio"
+                        id={type}
+                        name="exclusion"
+                        value={type}
+                        checked={exclusionType === type}
+                        onChange={(e) => setExclusionType(e.target.value)}
+                        className="mr-2"
+                      />
+                      <label htmlFor={type} className="text-blue-700">{type}</label>
+                    </div>
+                  ))}
+                </fieldset>
+                <div className="flex items-center mb-3">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="border px-2 py-1 rounded-l w-full"
+                  />
+                  <button onClick={handleAddItem} className="bg-blue-500 text-white px-3 py-1 rounded-r hover:bg-blue-600">+</button>
+                </div>
+                <div className="flex">
+                  <select
+                    size="5"
+                    className="w-full border p-2"
+                    value={selectedIndex}
+                    onChange={(e) => setSelectedIndex(Number(e.target.value))}
+                  >
+                    {items.map((item, index) => (
+                      <option key={index} value={index}>{item}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleRemove}
+                    className="ml-2 bg-blue-500 text-white px-3 py-1 h-fit hover:bg-blue-600"
+                  >
+                    -
+                  </button>
+                </div>
+                <div className='flex justify-center'>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
+                    Save
+                  </button>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>}
+              {activeTab === 2 && 
+              <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg">
+                <div className="flex items-center gap-2 text-lg font-medium mb-4">
+                  <FileText className="h-5 w-5" />
+                  <span>{selectedCases.length} selected</span>
+                  {selectedCases.length >= MAX_SELECTIONS && (
+                    <span className="text-sm text-amber-500 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      Maximum selections reached
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Left panel with scrollable case types */}
+                  <div className="w-full md:w-[400px] bg-blue-700 text-white rounded-md overflow-hidden">
+                    <div className="p-4 border-b border-white/10">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
+                        <input
+                          type="text"
+                          placeholder="Filter case types..."
+                          value={filterText}
+                          onChange={(e) => setFilterText(e.target.value)}
+                          className="search-input pl-10"
+                        />
+                      </div>
+                    </div>
+                    {/* Custom scroll area with custom scrollbar styles */}
+                    <div className="h-[400px] w-full overflow-y-auto custom-scrollbar">
+                      <div className="p-6">
+                        {filteredCaseTypes.length > 0 ? (
+                          filteredCaseTypes.map((caseType) => (
+                            <div key={caseType.id} className="flex items-center mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center">
+                                  <Gavel className="h-4 w-4 mr-2" />
+                                  <span className="ml-2">{caseType.name}</span>
+                                </div>
+                              </div>
+                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.name)}>
+                                {selectedCases.includes(caseType.name) ? (
+                                  <CheckCircle2 className="h-5 w-5 text-white" />
+                                ) : (
+                                  <Circle className={`h-5 w-5 ${selectedCases.length >= MAX_SELECTIONS ? "opacity-50" : ""}`} />
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.name)}>
-                            {selectedCases.includes(caseType.name) ? (
-                              <CheckCircle2 className="h-5 w-5 text-white" />
-                            ) : (
-                              <Circle className={`h-5 w-5 ${selectedCases.length >= MAX_SELECTIONS ? "opacity-50" : ""}`} />
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4 text-white/70">No case types match your filter</div>
-                    )}
+                          ))
+                        ) : (
+                          <div className="text-center py-4 text-white/70">No case types match your filter</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Right panel with price and buttons */}
+                  <div className="flex-1 flex flex-col justify-center items-center gap-6">
+                    <div className="text-3xl font-medium flex items-center">
+                      <DollarSign className="h-8 w-8" />
+                      {calculatePrice()}
+                    </div>
+                    <div className="flex gap-4">
+                      {/* Custom button instead of imported component */}
+                      <button
+                        className="bg-blue-700 hover:bg-blue-600 text-white px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
+                        onClick={() => handleSubscription()}
+                      >
+                        <ShoppingCart className="h-5 w-5" />
+                        Purchase
+                      </button>
+                      <button
+                        className="border border-blue-600 text-blue-600 hover:blue-600 px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
+                        onClick={() => setShowSettingsPanel(false)}
+                      >
+                        <X className="h-5 w-5" />
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Right panel with price and buttons */}
-              <div className="flex-1 flex flex-col justify-center items-center gap-6">
-                <div className="text-3xl font-medium flex items-center">
-                  <DollarSign className="h-8 w-8" />
-                  {calculatePrice()}
-                </div>
-
-                <div className="flex gap-4">
-                  {/* Custom button instead of imported component */}
-                  <button
-                    className="bg-blue-700 hover:bg-blue-600 text-white px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
-                    onClick={() => handleSubscription()}
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    Purchase
-                  </button>
-
-                  <button
-                    className="border border-blue-600 text-blue-600 hover:blue-600 px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
-                    onClick={() => setShowSettingsPanel(false)}
-                  >
-                    <X className="h-5 w-5" />
-                    Cancel
-                  </button>
-                </div>
-              </div>
+              </div>}
             </div>
           </div>
         </div>
@@ -692,7 +877,44 @@ const styles = {
   bell : {
     width : 35,
     height : 35
-  }
+  },
+  tabs: {
+    width: '800px',
+    height: '600px',
+    background: '#fff',
+    border: '1px solid #ccc',
+    borderRadius: '8px',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+  },
+  tabList: {
+    display: 'flex',
+    listStyleType: 'none',
+    padding: 0,
+    margin: 0,
+  },
+  tab: {
+    flex: 1,
+    padding: '15px',
+    cursor: 'pointer',
+    background: '#f5f5f5',
+    border: 'none',
+    borderRight: '1px solid #ccc',
+    fontSize: '16px',
+    fontWeight: 500,
+    color: '#333',
+  },
+  activeTab: {
+    background: '#fff',
+    color: '#0077b6',
+    fontWeight: 'bold',
+  },
+  tabContent: {
+    padding: '20px',
+    borderTop: '1px solid #ccc',
+    background: '#fff',
+    fontSize: '16px',
+    lineHeight: '24px',
+  },
 };
 
 
