@@ -23,7 +23,7 @@ import {
 import DateInterval from "../components/mainpage/DateInterval"
 import { loadingOff, loadingOn } from '../store/authSlice'
 import { useDispatch, useSelector } from 'react-redux'
-import { getCases, getCounties } from '../services/main';
+import { getCases, getCounties, getLastQueryDate } from '../services/main';
 import { getUser } from '../services/auth';
 import { checkout} from '../services/stripe';
 
@@ -49,8 +49,8 @@ export const MainPage = () => {
   const [filterText, setFilterText] = useState("")
   const [selectedCases, setSelectedCases] = useState([])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [activeTab, setActiveTab] = useState(0);
-  const [saveFolder, setSaveFolder] = useState('\\\\Mac\\Home\\Documents\\MailMerges');
+  const [activeTab, setActiveTab] = useState(2);
+  const [saveFolder, setSaveFolder] = useState('');
   const [templates, setTemplates] = useState([
     { id: 1, name: 'Criminal Letter' },
     { id: 2, name: 'Envelop' },
@@ -60,13 +60,28 @@ export const MainPage = () => {
   const [items, setItems] = useState(['WE']);
   const [selectedIndex, setSelectedIndex] = useState(null);
 
+  const today = new Date();
+  const formattedDate = `${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getDate().toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+  const [lastQueryDate, setLastQueryDate] = useState(formattedDate);
+  const [durationDate, setDurationDate] = useState(null);
+
   const dispatch = useDispatch()
   const totalCases = caseTypes.reduce((sum, court) => sum + court.count, 0)
   const navigate = useNavigate()
-  const tabs = ['Mail Merge', 'Mail Merge Exclusions', 'Billing'];
+  // const tabs = ['Mail Merge', 'Mail Merge Exclusions', 'Billing'];
+  const tabs = ['Billing'];
   const MAX_SELECTIONS = 3
 
-  useEffect(() => {
+  useEffect( () => {
+
+    const fetchQueryDate = async () => {
+      const queryDate = await getLastQueryDate();
+      setLastQueryDate(queryDate.query_date);
+    };
+
+    fetchQueryDate(); // Call the async function
+
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
@@ -79,14 +94,20 @@ export const MainPage = () => {
     setIsDateIntervalModalOpen(true);
   }
 
+  //mail merge
   const handleMailMerge = () => {
-    navigate('/mailmerge')
+
+    if(durationDate == null){
+      alert("You have to download the data first.");
+    }else{
+      navigate('/mailmerge', {state: {durationDate}});
+    }
   }
 
+  //settings
   const handleSettings = () => {
     dispatch(loadingOn());
     fetchCounties();
-
     setShowGetCases(false)
     setShowExportOptions(false)
     setShowMailMergeOptions(false)
@@ -112,18 +133,26 @@ export const MainPage = () => {
     setShowLogPanel(false)
   }
 
+  //get cases
   const handleDateInterval = (fromDate, toDate) => {
     setIsDateIntervalModalOpen(false)
-
     dispatch(loadingOn());
     fetchData(fromDate, toDate);
   }
 
   const fetchCounties = async () => {
-    const countyData = await getCounties();
-    organizeCounties(countyData.counties);
-    setShowSettingsPanel(!showSettingsPanel)
-    dispatch(loadingOff());
+
+    if(durationDate == null){
+      alert("You have to download the data first.");
+      dispatch(loadingOff());
+    }else{
+      console.log(durationDate);
+      console.log("durationDate");
+      const countyData = await getCounties(durationDate);
+      organizeCounties(countyData.counties);
+      setShowSettingsPanel(!showSettingsPanel)
+      dispatch(loadingOff());
+    }
   }
 
   const fetchData = async (fromDate, toDate) => {
@@ -132,7 +161,10 @@ export const MainPage = () => {
       fromDate: fromDate,
       toDate: toDate
   }
-    const casesData = await getCases(data);
+
+  setDurationDate(data);
+  // setLastQueryDate
+  const casesData = await getCases(data);
     organizeCases(casesData.cases);
     dispatch(loadingOff());
   };
@@ -177,27 +209,34 @@ export const MainPage = () => {
     }
 
     const countyCount = {};
-    countyData.forEach(({ DefendantAddressCity }) => {
+      countyData.forEach(({ DefendantAddressCity }) => {
       countyCount[DefendantAddressCity] = (countyCount[DefendantAddressCity] || 0) + 1;
     });
 
     const counties = Object.entries(countyCount).map(([name, count]) => ({ name, count }));
-
-    console.log(counties); 
     setSettingCounties(counties);
   }
 
+  const priceMap = {
+    1: "price_1RCBQBAZfjTlvHBo6huhKX6C",
+    2: "price_1RMCV1AZfjTlvHBoTLt6xaNz",
+    3: "price_1RMCVMAZfjTlvHBoQOmFRg2X",
+    4: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
+  }
+
   const handleSubscription = async () => {
-    
-    // setNotification({ type: "success", message: "Settings saved successfully" })
+
+    if(selectedCases.length < 1) return;
     setShowSettingsPanel(false)
     setIsLoading(true)
     const user = await getUser();
     
     const data = {
         email: user.username,
-        plan_id: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
+        // plan_id: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
+        plan_id: priceMap[selectedCases.length]
     }
+
     try {
         const checkout_session_url = await checkout(data);
         setIsLoading(false)
@@ -301,8 +340,9 @@ export const MainPage = () => {
   const handleFolderSelect = async () => {
     try {
       const directoryHandle = await window.showDirectoryPicker();
+
+      console.error('Folder Name:', directoryHandle.name);
       const fullPath = await getFullPath(directoryHandle);
-      
       setSaveFolder(fullPath);
     } catch (error) {
       console.error('Error selecting folder:', error);
@@ -858,7 +898,7 @@ export const MainPage = () => {
           <DateInterval
             onClose={() => setIsDateIntervalModalOpen(false)}
             onSubmit={(dateRange) => handleDateInterval(dateRange.fromDate, dateRange.toDate)}
-            lastQueryDate="03/21/2025"
+            lastQueryDate={(lastQueryDate)}
           />
         </div> )}
     </div>

@@ -3,15 +3,16 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { ChevronDown, ChevronRight } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import headermark from "../../src/assets/fusion-icon.svg";
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import { X, Calendar } from "lucide-react"
 import { loadingOff, loadingOn } from '../store/authSlice'
-import { getData, getCases, getCounties } from '../services/main';
+import { getData, getCases, getDataForMerge } from '../services/main';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import toast from "react-hot-toast";
 
 // Filter section component
 const FilterSection = ({ title, options, expanded, onToggle, onFilterChange }) => {
@@ -80,12 +81,18 @@ const FilterSection = ({ title, options, expanded, onToggle, onFilterChange }) =
 }
 
 // Date filter component
-const DateFilterSection = ({ expanded, onToggle, onDateFilterChange }) => {
+const DateFilterSection = ({ expanded, initialDate, onToggle, onDateFilterChange }) => {
 
-  const [fromDate, setFromDate] = useState(new Date("04/13/2018"))
-  const [toDate, setToDate] = useState(new Date())
+  const initialFromDate = initialDate.fromDate;
+  const formattedFromDate = `${(initialFromDate.getMonth() + 1).toString().padStart(2, '0')}/${initialFromDate.getDate().toString().padStart(2, '0')}/${initialFromDate.getFullYear()}`;
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const initialToDate = initialDate.toDate;
+  const formattedToDate = `${(initialToDate.getMonth() + 1).toString().padStart(2, '0')}/${initialToDate.getDate().toString().padStart(2, '0')}/${initialToDate.getFullYear()}`;
+
+  const [fromDate, setFromDate] = useState(formattedFromDate)
+  const [toDate, setToDate] = useState(formattedToDate)
+
+  const [showDatePicker, setShowDatePicker] = useState(true);
 
   const handleCheckboxChange = (e) => {
     setShowDatePicker(!e.target.checked);
@@ -111,7 +118,7 @@ const DateFilterSection = ({ expanded, onToggle, onDateFilterChange }) => {
               id="all"
               name="date"
               className="mr-2"
-              defaultChecked
+              
               onChange={handleCheckboxChange}
             />
             <label htmlFor="all" className="text-sm">
@@ -271,6 +278,15 @@ export const MailMerge = () => {
 
   const dispatch = useDispatch()
 
+  const { state } = useLocation();
+  const { durationDate } = state;
+
+  const initialFromDate = durationDate.fromDate;
+  const formattedFromDate = `${(initialFromDate.getMonth() + 1).toString().padStart(2, '0')}/${initialFromDate.getDate().toString().padStart(2, '0')}/${initialFromDate.getFullYear()}`;
+
+  const initialToDate = durationDate.toDate;
+  const formattedToDate = `${(initialToDate.getMonth() + 1).toString().padStart(2, '0')}/${initialToDate.getDate().toString().padStart(2, '0')}/${initialToDate.getFullYear()}`;
+
   const [expandedFilters, setExpandedFilters] = useState({
     caseType: true,
     court: true,
@@ -291,8 +307,8 @@ export const MailMerge = () => {
   const [allPageCount, setAllPageCount] = useState(1);
   const [allCases, setAllCases] = useState(0);
 
-  const [fromDate, setFromDate] = useState(new Date("04/13/2018"))
-  const [toDate, setToDate] = useState(new Date());
+  const [fromDate, setFromDate] = useState(new Date(formattedFromDate))
+  const [toDate, setToDate] = useState(new Date(formattedToDate));
   
   const [canPreviousPage, setCanPreviousPage] = useState(true)
   const [canNextPage, setCanNextPage] = useState(true)
@@ -421,14 +437,18 @@ export const MailMerge = () => {
     }
 
     const casesData = await getData(data);
+
     const totalCount = casesData.cases.total_count;
     setAllCases(totalCount);
     const result = Math.floor(totalCount / 100);
     setAllPageCount(result);
     setCaseData(casesData.cases.data);
+
+    dispatch(loadingOff());
   };
 
   const fetchFilterCondition = async () => {
+
     const data = {
       fromDate: fromDate,
       toDate: toDate
@@ -436,8 +456,7 @@ export const MailMerge = () => {
 
     const casesData = await getCases(data);
     organizeCases(casesData.cases);
-    dispatch(loadingOff());
-
+    // dispatch(loadingOff());
   };
 
   const organizeCases = (casesData) => {
@@ -498,32 +517,67 @@ export const MailMerge = () => {
   };
 
   const handleExport = () => {
+
   }
 
-  const formattedData = caseData.map(item => ({
-    ID: item.Case.id,
-    CaseCategoryKey: item.Case.CaseCategoryKey,
-    CaseCategoryGroup: item.Case.CaseCategoryGroup,
-    CaseNumber: item.Case.CaseNumber,
-    Court: item.Case.Court,
-  }));
+  const fetchDataForMerge = async() => {
+
+    dispatch(loadingOn());
+
+    const data = {
+      fromDate: fromDate,
+      toDate: toDate,
+      offset: pageOffset,
+      selectedCaseTypes: selectedCaseTypes,
+      selectedCourt: selectedCourt,
+      selectedCounty: selectedCounty
+    }
+
+    const mergeData = await getDataForMerge(data);
+
+    const mergeDataArray = mergeData.cases.data;
+
+    if (Array.isArray(mergeDataArray)) {
+
+      const formattedData = mergeDataArray.map(item => ({
+        ID: item.Case.id,
+        CaseCategoryKey: item.Case.CaseCategoryKey,
+        CaseCategoryGroup: item.Case.CaseCategoryGroup,
+        CaseNumber: item.Case.CaseNumber,
+        Court: item.Case.Court,
+      }));
+  
+      exportTableToExcel(formattedData);
+    }else{
+      throw new Error('Expected mergeData to be an array');
+    }
+    
+    dispatch(loadingOff());
+  }
 
   const handleMailMerge = () => {
-    exportTableToExcel(formattedData);
+    fetchDataForMerge();
   }
 
-  const exportTableToExcel = (data, filename = 'export.xlsx') => {
+  const exportTableToExcel = (data) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
 
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const file = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(file, filename);
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dynamicFilename = `export_${timestamp}.xlsx`;
+
+    saveAs(file, dynamicFilename);
+    toast.success("You can find " + dynamicFilename + " file in the download folder.");
   };
 
-  const gotoPage = () => {
-
+  const gotoPage = (pageCount) => {
+    setPageOffset(pageCount-1);
+    dispatch(loadingOn());
+    fetchData(pageCount-1)
   }
   
   const previousPage = () => {
@@ -583,6 +637,7 @@ export const MailMerge = () => {
           {/* Date Filter */}
           <DateFilterSection 
             expanded={expandedFilters.date} 
+            initialDate={durationDate}
             onToggle={() => toggleFilter("date")}
             onDateFilterChange={(from, to) => {
               setFromDate(from);
@@ -706,7 +761,7 @@ export const MailMerge = () => {
           </div>
           <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center'}}>
             <div>
-              <button style={styles.paginationButton} onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
+              <button style={styles.paginationButton} onClick={() => gotoPage(1)} disabled={!canPreviousPage}>
                 {'<<'}
               </button>{' '}
               <button style={styles.paginationButton} onClick={() => previousPage()} disabled={!canPreviousPage}>
@@ -720,7 +775,7 @@ export const MailMerge = () => {
               <button style={styles.paginationButton} onClick={() => nextPage()} disabled={!canNextPage}>
                 {'>'}
               </button>{' '}
-              <button style={styles.paginationButton} onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
+              <button style={styles.paginationButton} onClick={() => gotoPage(allPageCount)} disabled={!canNextPage}>
                 {'>>'}
               </button>{' '}
             </div>

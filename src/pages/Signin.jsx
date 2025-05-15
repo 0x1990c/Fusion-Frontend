@@ -48,7 +48,6 @@ export const Signin = () => {
       toast.success("You signed in successfully");
       localStorage.setItem('access_token', res.access_token)
       localStorage.setItem('user_email', userInfo.email)
-
       localStorage.setItem('user_type', res.user.user_type)
 
       navigate('/main')
@@ -78,7 +77,6 @@ export const Signin = () => {
               name="email" onChange={handleChange} value={userInfo.email}
             />
           </div>
-
           <div className="shadow-md rounded-2xl p-1 bg-white flex items-center">
             <div className="w-14">
               

@@ -24,6 +24,7 @@ export const signinUser = async ({email, password}) => {
         formData.append('email', email)
         formData.append('password', password)
 
+        console.log(API); 
         const res = await fetch(API+'signin', {
             method: 'POST',
             body: formData
@@ -34,7 +35,6 @@ export const signinUser = async ({email, password}) => {
         console.log(error)
     }
 }
-
 
 export const changePassword = async ({token, email, newPassword}) => {
     try {
