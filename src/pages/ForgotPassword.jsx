@@ -20,6 +20,7 @@ export const ForgotPassword = () => {
   const [isConfirmEmail, setIsConfirmEmail] = useState(false);
 
   const { forgotPasswordToken } = useParams();
+  console.log("forgotPasswordToken");
   console.log(forgotPasswordToken);
 
   const dispatch = useDispatch()

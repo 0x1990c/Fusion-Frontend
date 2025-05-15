@@ -44,7 +44,29 @@ export const getData =  async (data) => {
     }
 }
 
-export const getCounties =  async () => {
+export const getDataForMerge =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`getDataForMerge`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const getCounties =  async (data) => {
         
     try {
 
@@ -53,6 +75,28 @@ export const getCounties =  async () => {
         console.log(token);
         
         const res = await fetch(API+`getCounties`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const getLastQueryDate =  async () => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`getLastQueryDate`, {
             method: 'POST',
             headers: {
                 authorization: `Bearer ${token}`,
@@ -69,3 +113,4 @@ export const getCounties =  async () => {
         console.log(error)
     }
 }
+

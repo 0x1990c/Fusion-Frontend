@@ -11,8 +11,8 @@ const DateInterval = ({ onClose, onSubmit, lastQueryDate }) => {
   const parsedLastQueryDate = lastQueryDate ? new Date(lastQueryDate) : new Date()
 
   // Initialize state with default dates (from: 1 month ago, to: current date)
-  const [fromDate, setFromDate] = useState(new Date("06/04/2025"))
-  const [toDate, setToDate] = useState(new Date("07/04/2025"))
+  const [fromDate, setFromDate] = useState(new Date("04/06/2025"))
+  const [toDate, setToDate] = useState(new Date("04/07/2025"))
 
   const handleSubmit = () => {
     onSubmit({ fromDate, toDate })
