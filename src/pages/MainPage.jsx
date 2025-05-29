@@ -23,7 +23,7 @@ import {
 import DateInterval from "../components/mainpage/DateInterval"
 import { loadingOff, loadingOn } from '../store/authSlice'
 import { useDispatch, useSelector } from 'react-redux'
-import { getCases, getCounties, getLastQueryDate } from '../services/main';
+import { getCases, getCounties, getCourts, getLastQueryDate } from '../services/main';
 import { getUser } from '../services/auth';
 import { checkout} from '../services/stripe';
 
@@ -46,6 +46,7 @@ export const MainPage = () => {
   const [caseTypes, setCaseTypes] = useState([]);
   const [counties, setCounties] = useState([]);
   const [settingCounties, setSettingCounties] = useState([]);
+  const [settingCourts, setSettingCourts] = useState([]);
   const [filterText, setFilterText] = useState("")
   const [selectedCases, setSelectedCases] = useState([])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -107,7 +108,7 @@ export const MainPage = () => {
   //settings
   const handleSettings = () => {
     dispatch(loadingOn());
-    fetchCounties();
+    fetchCourts();
     setShowGetCases(false)
     setShowExportOptions(false)
     setShowMailMergeOptions(false)
@@ -140,19 +141,13 @@ export const MainPage = () => {
     fetchData(fromDate, toDate);
   }
 
-  const fetchCounties = async () => {
+  const fetchCourts = async () => {
 
-    if(durationDate == null){
-      alert("You have to download the data first.");
-      dispatch(loadingOff());
-    }else{
-      console.log(durationDate);
-      console.log("durationDate");
-      const countyData = await getCounties(durationDate);
-      organizeCounties(countyData.counties);
-      setShowSettingsPanel(!showSettingsPanel)
-      dispatch(loadingOff());
-    }
+    const countyData = await getCourts();
+    setSettingCourts(countyData.courts);
+    console.log(countyData.courts);
+    setShowSettingsPanel(!showSettingsPanel)
+    dispatch(loadingOff());
   }
 
   const fetchData = async (fromDate, toDate) => {
@@ -199,23 +194,23 @@ export const MainPage = () => {
     setCounties(cities);
   }
 
-  const organizeCounties = (countyData) => {
+  // const organizeCounties = (countyData) => {
 
-    if (!Array.isArray(countyData)) {
-      console.error("Expected countyData to be an array.");
-      return {
-        counties: [],
-      };
-    }
+  //   if (!Array.isArray(countyData)) {
+  //     console.error("Expected countyData to be an array.");
+  //     return {
+  //       counties: [],
+  //     };
+  //   }
 
-    const countyCount = {};
-      countyData.forEach(({ DefendantAddressCity }) => {
-      countyCount[DefendantAddressCity] = (countyCount[DefendantAddressCity] || 0) + 1;
-    });
+  //   const countyCount = {};
+  //     countyData.forEach(({ Court }) => {
+  //     countyCount[Court] = (countyCount[Court] || 0) + 1;
+  //   });
 
-    const counties = Object.entries(countyCount).map(([name, count]) => ({ name, count }));
-    setSettingCounties(counties);
-  }
+  //   const counties = Object.entries(countyCount).map(([name, count]) => ({ name, count }));
+  //   setSettingCounties(counties);
+  // }
 
   const priceMap = {
     1: "price_1RCBQBAZfjTlvHBo6huhKX6C",
@@ -282,10 +277,10 @@ export const MainPage = () => {
     }, 1500)
   }
 
-  const filteredCaseTypes = settingCounties.filter(
-    (caseType) =>
-      caseType.name.toLowerCase().includes(filterText.toLowerCase()),
-  )
+  const filteredCaseTypes = settingCourts.filter(
+    (court) =>
+      court.courts.toLowerCase().includes(filterText.toLowerCase())
+  );
 
   const actionButtons = [
     { name: "Get Cases", icon: <Download className="w-12 h-12 text-white" />, handler: handleGetCases },
@@ -424,7 +419,7 @@ export const MainPage = () => {
             {actionButtons.slice(0, 2).map((button, index) => (
               <div key={index} className="flex flex-col items-center">
                 <div
-                  className="bg-blue-600 p-6 w-full flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-blue-700 transition-colors"
+                  className="bg-blue-600 p-6 w-[80%] flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-blue-700 transition-colors"
                   onClick={button.handler}
                 >
                   {button.icon}
@@ -440,7 +435,7 @@ export const MainPage = () => {
             {actionButtons.slice(2).map((button, index) => (
               <div key={index} className="flex flex-col items-center">
                 <div
-                  className="bg-blue-600 p-6 w-full flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-blue-700 transition-colors"
+                  className="bg-blue-600 p-6 w-[80%] flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-blue-700 transition-colors"
                   onClick={button.handler}
                 >
                   {button.icon}
@@ -784,15 +779,15 @@ export const MainPage = () => {
                       <div className="p-6">
                         {filteredCaseTypes.length > 0 ? (
                           filteredCaseTypes.map((caseType) => (
-                            <div key={caseType.id} className="flex items-center mb-3">
+                            <div key={caseType.identifier} className="flex items-center mb-3">
                               <div className="flex-1">
                                 <div className="flex items-center">
                                   <Gavel className="h-4 w-4 mr-2" />
-                                  <span className="ml-2">{caseType.name}</span>
+                                  <span className="ml-2">{caseType.courts}</span>
                                 </div>
                               </div>
-                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.name)}>
-                                {selectedCases.includes(caseType.name) ? (
+                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.courts)}>
+                                {selectedCases.includes(caseType.courts) ? (
                                   <CheckCircle2 className="h-5 w-5 text-white" />
                                 ) : (
                                   <Circle className={`h-5 w-5 ${selectedCases.length >= MAX_SELECTIONS ? "opacity-50" : ""}`} />

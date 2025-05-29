@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useRef } from "react"
 import DatePicker from "react-datepicker"
 import { X, Calendar } from "lucide-react"
 import "react-datepicker/dist/react-datepicker.css"
@@ -11,8 +11,10 @@ const DateInterval = ({ onClose, onSubmit, lastQueryDate }) => {
   const parsedLastQueryDate = lastQueryDate ? new Date(lastQueryDate) : new Date()
 
   // Initialize state with default dates (from: 1 month ago, to: current date)
-  const [fromDate, setFromDate] = useState(new Date("04/06/2025"))
-  const [toDate, setToDate] = useState(new Date("04/07/2025"))
+  const [fromDate, setFromDate] = useState(new Date())
+  const [toDate, setToDate] = useState(new Date())
+  const datePickerRef = useRef(null);
+  const datePickerRef2 = useRef(null);
 
   const handleSubmit = () => {
     onSubmit({ fromDate, toDate })
@@ -47,8 +49,10 @@ const DateInterval = ({ onClose, onSubmit, lastQueryDate }) => {
                 onChange={(date) => setFromDate(date)}
                 dateFormat="MM/dd/yyyy"
                 className="w-48 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ref={datePickerRef}
               />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer" size={16} 
+                onClick={() => datePickerRef.current?.setOpen(true)}/>
             </div>
           </div>
 
@@ -63,8 +67,10 @@ const DateInterval = ({ onClose, onSubmit, lastQueryDate }) => {
                 onChange={(date) => setToDate(date)}
                 dateFormat="MM/dd/yyyy"
                 className="w-48 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ref={datePickerRef2}
               />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer" size={16} 
+                onClick={() => datePickerRef2.current?.setOpen(true)}/>
             </div>
           </div>
         </div>

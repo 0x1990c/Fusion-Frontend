@@ -4,6 +4,7 @@ import { useEffect } from "react"
 
 import avatar from '../../../src/assets/user-avatar.jpg'
 import { getUser } from '../../services/auth';
+import { fetchCourts } from '../../services/main';
 
 const UserProfile = () => {
 
@@ -17,8 +18,9 @@ const UserProfile = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleShowLog = () => {
-
+  const handleFetchCourts = async () => {
+    const fetchResult = await fetchCourts();
+    
   };
 
   const handleSignOut = () => {
@@ -76,7 +78,7 @@ const UserProfile = () => {
       {isOpen && (
         <div className="absolute right-0 mt-1 w-1/2 bg-white border border-gray-200 rounded-md shadow-lg z-10">
           <div className="py-1">
-            {( userType == 1) && <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-700 hover:text-white" onClick={handleShowLog}>Log</button>}
+            {( userType == 1) && <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-700 hover:text-white" onClick={handleFetchCourts}>Fetch Courts</button>}
             <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-700 hover:text-white" onClick={handleSignOut}>
               Sign Out
             </button>
