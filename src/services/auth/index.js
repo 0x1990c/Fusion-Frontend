@@ -53,6 +53,7 @@ export const changePassword = async ({token, email, newPassword}) => {
         console.log(error)
     }
 }
+
 export const confirmEmail = async ({email}) => {
     try {
         const formData = new FormData()
@@ -74,9 +75,6 @@ export const getUser = async () => {
 
         const token = localStorage.getItem('access_token');
         
-        console.log("token");
-        console.log(token);
-
         const res = await fetch(API + 'current-user', {
             method: 'GET',
             headers: {

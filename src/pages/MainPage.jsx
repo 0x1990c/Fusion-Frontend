@@ -23,7 +23,7 @@ import {
 import DateInterval from "../components/mainpage/DateInterval"
 import { loadingOff, loadingOn } from '../store/authSlice'
 import { useDispatch, useSelector } from 'react-redux'
-import { getCases, getCounties, getCourts, getLastQueryDate } from '../services/main';
+import { getCases, getCounties, getCourts, getLastQueryDate, alertCourtsToAdmin } from '../services/main';
 import { getUser } from '../services/auth';
 import { checkout} from '../services/stripe';
 
@@ -142,10 +142,8 @@ export const MainPage = () => {
   }
 
   const fetchCourts = async () => {
-
     const countyData = await getCourts();
     setSettingCourts(countyData.courts);
-    console.log(countyData.courts);
     setShowSettingsPanel(!showSettingsPanel)
     dispatch(loadingOff());
   }
@@ -249,17 +247,26 @@ export const MainPage = () => {
     }
   };
 
-  const toggleCaseSelection = (countyName) => {
+  const toggleCaseSelection = async(countyIdentifier, courtName) => {
 
-    console.log(countyName);
-    if (selectedCases.includes(countyName)) {
+    if (selectedCases.includes(courtName)) {
       // Always allow deselection
-      setSelectedCases(selectedCases.filter((name) => name !== countyName))
+      setSelectedCases(selectedCases.filter((name) => name !== courtName))
     } else {
       // Only allow selection if under the limit
       if (selectedCases.length < MAX_SELECTIONS) {
-        setSelectedCases([...selectedCases, countyName])
+        setSelectedCases([...selectedCases, courtName])
       }
+      
+      const user = await getUser();
+      const countyName = courtName.split(" ")[0];
+      const data = {
+        county: countyName,
+        court: courtName,
+        user:user.username
+      }
+
+      await alertCourtsToAdmin(data);
     }
   }
 
@@ -786,7 +793,7 @@ export const MainPage = () => {
                                   <span className="ml-2">{caseType.courts}</span>
                                 </div>
                               </div>
-                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.courts)}>
+                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.identifier, caseType.courts)}>
                                 {selectedCases.includes(caseType.courts) ? (
                                   <CheckCircle2 className="h-5 w-5 text-white" />
                                 ) : (
