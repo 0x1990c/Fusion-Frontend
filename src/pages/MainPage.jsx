@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { Link, useNavigate } from "react-router-dom"
 import { 
   Download, 
   FileSpreadsheet, 
@@ -12,23 +11,41 @@ import {
   Circle, 
   DollarSign, 
   ShoppingCart, 
-  X, 
   AlertCircle, 
   Gavel, 
   Search,
   FileText, 
   Pencil, 
-  Plus} from "lucide-react"
-
-import DateInterval from "../components/mainpage/DateInterval"
-import { loadingOff, loadingOn } from '../store/authSlice'
+  Plus,
+  MapPin, 
+  Building2, 
+  CheckSquare,
+  X, 
+  Filter, 
+  Check, 
+  ChevronDown, 
+  Save, 
+  RefreshCw,
+  List } from "lucide-react"
 import { useDispatch, useSelector } from 'react-redux'
-import { getCases, getCounties, getCourts, getLastQueryDate, alertCourtsToAdmin } from '../services/main';
-import { getUser } from '../services/auth';
-import { checkout} from '../services/stripe';
+import { Link, useNavigate } from "react-router-dom"
+
+
+
+
+
 
 import headermark from "../../src/assets/fusion-icon.svg";
+import DateInterval from "../components/mainpage/DateInterval"
 import UserProfile from "../components/mainpage/UserProfile"
+import { getUser } from '../services/auth';
+import { getCases, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin } from '../services/main';
+import { checkout} from '../services/stripe';
+import { loadingOff, loadingOn } from '../store/authSlice'
+
+
+
+
 
 export const MainPage = () => {
 
@@ -50,7 +67,7 @@ export const MainPage = () => {
   const [filterText, setFilterText] = useState("")
   const [selectedCases, setSelectedCases] = useState([])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [activeTab, setActiveTab] = useState(2);
+  const [activeTab, setActiveTab] = useState(0);
   const [saveFolder, setSaveFolder] = useState('');
   const [templates, setTemplates] = useState([
     { id: 1, name: 'Criminal Letter' },
@@ -67,11 +84,17 @@ export const MainPage = () => {
   const [lastQueryDate, setLastQueryDate] = useState(formattedDate);
   const [durationDate, setDurationDate] = useState(null);
 
+  const [selectedCounty, setSelectedCounty] = useState("")
+  const [selectedCourts, setSelectedCourts] = useState([])
+  const [availableCourts, setAvailableCourts] = useState([])
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [allSelectedCourts, setAllSelectedCourts] = useState([])
+
   const dispatch = useDispatch()
   const totalCases = caseTypes.reduce((sum, court) => sum + court.count, 0)
   const navigate = useNavigate()
-  // const tabs = ['Mail Merge', 'Mail Merge Exclusions', 'Billing'];
-  const tabs = ['Billing'];
+  // const tabs = ['Mail Merge', 'Mail Merge Exclusions', 'Billing', 'County'];
+  const tabs = ['Billing', 'Counties & Courts'];
   const MAX_SELECTIONS = 3
 
   useEffect( () => {
@@ -108,7 +131,7 @@ export const MainPage = () => {
   //settings
   const handleSettings = () => {
     dispatch(loadingOn());
-    fetchCourts();
+    fetchCourtsAndCounties();
     setShowGetCases(false)
     setShowExportOptions(false)
     setShowMailMergeOptions(false)
@@ -141,9 +164,13 @@ export const MainPage = () => {
     fetchData(fromDate, toDate);
   }
 
-  const fetchCourts = async () => {
-    const countyData = await getCourts();
-    setSettingCourts(countyData.courts);
+  const fetchCourtsAndCounties = async () => {
+    const courtData = await getCourts();
+    setSettingCourts(courtData.courts);
+
+    const countyData = await getIndianaCounties();
+    setSettingCounties(countyData.counties);
+
     setShowSettingsPanel(!showSettingsPanel)
     dispatch(loadingOff());
   }
@@ -156,7 +183,6 @@ export const MainPage = () => {
   }
 
   setDurationDate(data);
-  // setLastQueryDate
   const casesData = await getCases(data);
     organizeCases(casesData.cases);
     dispatch(loadingOff());
@@ -257,7 +283,7 @@ export const MainPage = () => {
       if (selectedCases.length < MAX_SELECTIONS) {
         setSelectedCases([...selectedCases, courtName])
       }
-      
+
       const user = await getUser();
       const countyName = courtName.split(" ")[0];
       const data = {
@@ -406,6 +432,98 @@ export const MainPage = () => {
       color: rgba(255, 255, 255, 0.5);
     }
   `
+  const countiesData = {};
+
+  settingCounties.forEach(county => {
+    countiesData[county.county] = {
+        name: county.county,
+        courts: []
+    };
+  });
+
+  settingCourts.forEach(court => {
+    const countyIdentifier = court.identifier.slice(0, 2); // Get the first two characters of identifier
+    const countyKey = settingCounties.find(c => c.identifier === countyIdentifier)?.county;
+
+    if (countyKey) {
+        countiesData[countyKey].courts.push(court);
+    }
+  })
+
+  useEffect(() => {
+    if (selectedCounty && countiesData[selectedCounty]) {
+      setAvailableCourts(countiesData[selectedCounty].courts)
+      setSelectedCourts([]) // Reset court selection when county changes
+    } else {
+      setAvailableCourts([])
+      setSelectedCourts([])
+    }
+  }, [selectedCounty])
+
+  // Update allSelectedCourts when selectedCourts changes
+  useEffect(() => {
+    if (selectedCounty && selectedCourts.length > 0) {
+      const currentCountyName = countiesData[selectedCounty].name
+      const currentSelectedCourts = selectedCourts.map((courtId) => {
+        const court = availableCourts.find((c) => c.id === courtId)
+        return {
+          id: courtId,
+          courts: court?.courts, // Changed from 'name' to 'courts'
+          county: currentCountyName,
+          countyId: selectedCounty,
+        }
+      })
+
+      // Remove courts from the same county and add new ones
+      setAllSelectedCourts((prev) => [
+        ...prev.filter((court) => court.countyId !== selectedCounty),
+        ...currentSelectedCourts,
+      ])
+    } else if (selectedCounty) {
+      // Remove all courts from current county if none selected
+      setAllSelectedCourts((prev) => prev.filter((court) => court.countyId !== selectedCounty))
+    }
+  }, [selectedCourts, selectedCounty, availableCourts])
+
+  // Handle window resize to recalculate dropdown height
+  useEffect(() => {
+    const handleResize = () => {
+      // Force re-render when window is resized
+      if (isDropdownOpen) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [isDropdownOpen])
+
+  // Handle individual court selection
+  const handleCourtToggle = (courtId) => {
+    setSelectedCourts((prev) => (prev.includes(courtId) ? prev.filter((id) => id !== courtId) : [...prev, courtId]))
+  }
+
+  // Handle select all courts
+  const handleSelectAll = () => {
+    if (selectedCourts.length === availableCourts.length) {
+      setSelectedCourts([]) // Deselect all if all are selected
+    } else {
+      setSelectedCourts(availableCourts.map((court) => court.id)) // Select all
+    }
+  }
+
+  // Remove individual court from all selected courts
+  const removeCourtFromSelection = (courtId) => {
+    setAllSelectedCourts((prev) => prev.filter((court) => court.id !== courtId))
+    // Also update current selection if it's from the current county
+    if (selectedCourts.includes(courtId)) {
+      setSelectedCourts((prev) => prev.filter((id) => id !== courtId))
+    }
+  }
+
+  // Check if all courts are selected
+  const allSelected = availableCourts.length > 0 && selectedCourts.length === availableCourts.length
+
   return (
     <div className="bg-gray-100 min-h-screen p-4">
       <div className="flex justify-start flex-row pt-1 pb-1 box-border items-center">
@@ -656,105 +774,8 @@ export const MainPage = () => {
             </ul>
             <div style={styles.tabContent}>
               <style>{scrollbarStyles}</style>
+              
               {activeTab === 0 && 
-              <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-md ">
-                <label className="block font-semibold mb-1 text-blue-700">Mail Merge Save Folder</label>
-                <div className="flex items-center mb-4">
-                  <input
-                    type="text"
-                    className="border rounded-l px-3 py-1 w-full"
-                    value={saveFolder}
-                    onChange={(e) => setSaveFolder(e.target.value)}
-                  />
-                  <button className="bg-gray-200 border rounded-r px-3 py-1" onClick={handleFolderSelect}>...</button>
-                </div>
-                <label className="block font-semibold mb-2 text-blue-700">Mail Merge Templates</label>
-                <div className="h-[350px] w-full overflow-y-auto custom-scrollbar border rounded p-2 bg-gray-50 overflow-hidden">
-                  {templates.map((template) => (
-                    <div key={template.id} className="flex justify-between items-center border-b last:border-none py-2">
-                      <span>{template.name}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEdit(template.id)} className="text-blue-600">
-                          <Pencil size={18} />
-                        </button>
-                        <button onClick={() => handleDelete(template.id)} className="text-red-600">
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    onClick={handleAddTemplate}
-                    className="flex items-center gap-1 text-sm text-blue-700 mt-2"
-                  >
-                    <Plus size={16} /> Add Template
-                  </button>
-                </div>
-                <div className='flex justify-center'>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
-                    Save
-                  </button>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
-                    Close
-                  </button>
-                </div>
-              </div>}
-              {activeTab === 1 && 
-              <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-md">
-                <fieldset className="border p-4 mb-4">
-                  <legend className="text-blue-700 font-semibold">Exclusion</legend>
-                  {['Case Type', 'Party Name', 'Offense Description', 'Case Number'].map((type) => (
-                    <div key={type} className="flex items-center mb-2">
-                      <input
-                        type="radio"
-                        id={type}
-                        name="exclusion"
-                        value={type}
-                        checked={exclusionType === type}
-                        onChange={(e) => setExclusionType(e.target.value)}
-                        className="mr-2"
-                      />
-                      <label htmlFor={type} className="text-blue-700">{type}</label>
-                    </div>
-                  ))}
-                </fieldset>
-                <div className="flex items-center mb-3">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="border px-2 py-1 rounded-l w-full"
-                  />
-                  <button onClick={handleAddItem} className="bg-blue-500 text-white px-3 py-1 rounded-r hover:bg-blue-600">+</button>
-                </div>
-                <div className="flex">
-                  <select
-                    size="5"
-                    className="w-full border p-2"
-                    value={selectedIndex}
-                    onChange={(e) => setSelectedIndex(Number(e.target.value))}
-                  >
-                    {items.map((item, index) => (
-                      <option key={index} value={index}>{item}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleRemove}
-                    className="ml-2 bg-blue-500 text-white px-3 py-1 h-fit hover:bg-blue-600"
-                  >
-                    -
-                  </button>
-                </div>
-                <div className='flex justify-center'>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
-                    Save
-                  </button>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
-                    Close
-                  </button>
-                </div>
-              </div>}
-              {activeTab === 2 && 
               <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg">
                 <div className="flex items-center gap-2 text-lg font-medium mb-4">
                   <FileText className="h-5 w-5" />
@@ -832,6 +853,311 @@ export const MainPage = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>}
+              {activeTab === 1 && 
+              <div className="w-full max-w-4xl mx-auto p-4">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  {/* Header */}
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      County & Court Selection Panel
+                    </h2>
+                  </div>
+          
+                  <div className="p-6 space-y-6">
+                    {/* County Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Select County
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
+                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        >
+                          <span className={selectedCounty ? "text-gray-900" : "text-gray-500"}>
+                            {selectedCounty ? countiesData[selectedCounty].name : "Choose a county..."}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-gray-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+          
+                        {isDropdownOpen && (
+                          <div
+                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg"
+                            style={{
+                              maxHeight: `${Math.min(
+                                Object.keys(countiesData).length * 40 + 16, // 40px per item + padding
+                                window.innerHeight * 0.6, // 60% of screen height
+                              )}px`,
+                              overflowY:
+                                Object.keys(countiesData).length * 40 + 16 > window.innerHeight * 0.6 ? "auto" : "visible",
+                            }}
+                          >
+                            {Object.entries(countiesData).map(([key, county]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none first:rounded-t-md last:rounded-b-md"
+                                onClick={() => {
+                                  setSelectedCounty(key)
+                                  setIsDropdownOpen(false)
+                                }}
+                              >
+                                {county.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+          
+                    {/* Courts Selection */}
+                    {selectedCounty && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                            <Building2 className="h-4 w-4" />
+                            Select Courts in {countiesData[selectedCounty].name}
+                          </label>
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1"
+                            onClick={handleSelectAll}
+                          >
+                            {allSelected ? <X className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+                            {allSelected ? "Deselect All" : "Select All"}
+                          </button>
+                        </div>
+          
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {availableCourts.map((court) => (
+                            <div key={court.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+                              <input
+                                type="checkbox"
+                                id={court.id}
+                                checked={selectedCourts.includes(court.id)}
+                                onChange={() => handleCourtToggle(court.id)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <label
+                                htmlFor={court.id}
+                                className="text-sm font-medium text-gray-700 cursor-pointer flex-1 flex items-center gap-2"
+                              >
+                                <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                                {court.courts} {/* Changed from court.name to court.courts */}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+          
+                    {/* Selection Summary */}
+                    {selectedCourts.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          Selected Courts in Current County ({selectedCourts.length})
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCourts.map((courtId) => {
+                            const court = availableCourts.find((c) => c.id === courtId)
+                            return (
+                              <span
+                                key={courtId}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                              >
+                                <Check className="h-3 w-3" />
+                                {court?.courts} {/* Changed from court?.name to court?.courts */}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+          
+                    {/* Action Buttons */}
+                    {allSelectedCourts.length > 0 && (
+                      <div className="flex gap-2 pt-4 border-t border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => console.log("All Selected Courts:", allSelectedCourts)}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <Save className="h-4 w-4" />
+                          Apply Selection ({allSelectedCourts.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCounty("")
+                            setSelectedCourts([])
+                            setAllSelectedCourts([])
+                            setIsDropdownOpen(false)
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Clear All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsPanel(false)}
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <X className="h-5 w-5" />
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+          
+                  {/* Bottom Panel - All Selected Courts */}
+                  {allSelectedCourts.length > 0 && (
+                    <div className="border-t border-gray-200 bg-gray-50">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                            <List className="h-5 w-5" />
+                            All Selected Courts ({allSelectedCourts.length})
+                          </h3>
+                        </div>
+          
+                        <div className="space-y-3 max-h-80 overflow-y-auto">
+                          {allSelectedCourts.map((court) => (
+                            <div
+                              key={`${court.countyId}-${court.id}`}
+                              className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Building2 className="h-4 w-4 text-blue-600" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{court.courts}</div>{" "}
+                                  {/* Changed from court.name to court.courts */}
+                                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {court.county}
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeCourtFromSelection(court.id)}
+                                className="p-1 text-gray-400 hover:text-red-600 focus:outline-none focus:text-red-600"
+                                title="Remove court"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>}
+              {activeTab === 2 && 
+              <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-md ">
+                <label className="block font-semibold mb-1 text-blue-700">Mail Merge Save Folder</label>
+                <div className="flex items-center mb-4">
+                  <input
+                    type="text"
+                    className="border rounded-l px-3 py-1 w-full"
+                    value={saveFolder}
+                    onChange={(e) => setSaveFolder(e.target.value)}
+                  />
+                  <button className="bg-gray-200 border rounded-r px-3 py-1" onClick={handleFolderSelect}>...</button>
+                </div>
+                <label className="block font-semibold mb-2 text-blue-700">Mail Merge Templates</label>
+                <div className="h-[350px] w-full overflow-y-auto custom-scrollbar border rounded p-2 bg-gray-50 overflow-hidden">
+                  {templates.map((template) => (
+                    <div key={template.id} className="flex justify-between items-center border-b last:border-none py-2">
+                      <span>{template.name}</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(template.id)} className="text-blue-600">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => handleDelete(template.id)} className="text-red-600">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddTemplate}
+                    className="flex items-center gap-1 text-sm text-blue-700 mt-2"
+                  >
+                    <Plus size={16} /> Add Template
+                  </button>
+                </div>
+                <div className='flex justify-center'>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
+                    Save
+                  </button>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>}
+              {activeTab === 3 && 
+              <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-md">
+                <fieldset className="border p-4 mb-4">
+                  <legend className="text-blue-700 font-semibold">Exclusion</legend>
+                  {['Case Type', 'Party Name', 'Offense Description', 'Case Number'].map((type) => (
+                    <div key={type} className="flex items-center mb-2">
+                      <input
+                        type="radio"
+                        id={type}
+                        name="exclusion"
+                        value={type}
+                        checked={exclusionType === type}
+                        onChange={(e) => setExclusionType(e.target.value)}
+                        className="mr-2"
+                      />
+                      <label htmlFor={type} className="text-blue-700">{type}</label>
+                    </div>
+                  ))}
+                </fieldset>
+                <div className="flex items-center mb-3">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="border px-2 py-1 rounded-l w-full"
+                  />
+                  <button onClick={handleAddItem} className="bg-blue-500 text-white px-3 py-1 rounded-r hover:bg-blue-600">+</button>
+                </div>
+                <div className="flex">
+                  <select
+                    size="5"
+                    className="w-full border p-2"
+                    value={selectedIndex}
+                    onChange={(e) => setSelectedIndex(Number(e.target.value))}
+                  >
+                    {items.map((item, index) => (
+                      <option key={index} value={index}>{item}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleRemove}
+                    className="ml-2 bg-blue-500 text-white px-3 py-1 h-fit hover:bg-blue-600"
+                  >
+                    -
+                  </button>
+                </div>
+                <div className='flex justify-center'>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
+                    Save
+                  </button>
+                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
+                    Close
+                  </button>
                 </div>
               </div>}
             </div>
@@ -951,6 +1277,9 @@ const styles = {
     fontWeight: 'bold',
   },
   tabContent: {
+    height: '600px',
+    overflowY: 'auto', 
+    maxHeight: '100vh',
     padding: '20px',
     borderTop: '1px solid #ccc',
     background: '#fff',
