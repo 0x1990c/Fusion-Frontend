@@ -1,18 +1,36 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { ChevronDown, ChevronRight } from "lucide-react"
-import { Link, useNavigate, useLocation } from "react-router-dom"
-import headermark from "../../src/assets/fusion-icon.svg";
+import { saveAs } from 'file-saver';
+import { 
+  Mail, 
+  FileText, 
+  Users, 
+  Calendar, 
+  X, 
+  ChevronDown, 
+  ChevronRight,
+  Tag, 
+  Eye } from "lucide-react"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
-import { X, Calendar } from "lucide-react"
-import { loadingOff, loadingOn } from '../store/authSlice'
-import { getData, getCases, getDataForMerge } from '../services/main';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 import toast from "react-hot-toast";
+import { useDispatch, useSelector } from 'react-redux'
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import * as XLSX from 'xlsx';
+
+
+
+
+
+import headermark from "../../src/assets/fusion-icon.svg";
+import { getUser } from '../services/auth';
+import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent } from '../services/main';
+import { loadingOff, loadingOn } from '../store/authSlice'
+
+
+
+
 
 // Filter section component
 const FilterSection = ({ title, options, expanded, onToggle, onFilterChange }) => {
@@ -244,6 +262,34 @@ const ActionPanel = ({ recordCount, onApplyFilters, onExport, onMailMerge }) => 
         </button>
         <button
           style={styles.actionButton}
+          onClick={onExport}
+          onMouseOver={handleMouseOver}
+          onMouseOut={handleMouseOut}
+        >
+          <span style={styles.buttonIcon}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </span>
+          Export
+        </button>
+
+        <button
+          style={styles.actionButton}
           onClick={onMailMerge}
           onMouseOver={handleMouseOver}
           onMouseOut={handleMouseOut}
@@ -273,6 +319,7 @@ const ActionPanel = ({ recordCount, onApplyFilters, onExport, onMailMerge }) => 
     </div>
   )
 }
+
 
 export const MailMerge = () => {
 
@@ -306,6 +353,8 @@ export const MailMerge = () => {
 
   const [allPageCount, setAllPageCount] = useState(1);
   const [allCases, setAllCases] = useState(0);
+  
+  const [isMailMergeModal, setIsMailMergeModal] = useState(false);
 
   const [fromDate, setFromDate] = useState(new Date(formattedFromDate))
   const [toDate, setToDate] = useState(new Date(formattedToDate));
@@ -315,6 +364,13 @@ export const MailMerge = () => {
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
+  const [isOpen, setIsOpen] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [selectedTemplateContent, setSelectedTemplateContent] = useState()
+  const [isMailMerging, setIsMailMerging] = useState(false)
+
+  const [savedTemplates, setSavedTemplates] = useState([])
+  
   const navigate = useNavigate()
 
   const fields = [
@@ -516,9 +572,6 @@ export const MailMerge = () => {
     }
   };
 
-  const handleExport = () => {
-
-  }
 
   const fetchDataForMerge = async() => {
 
@@ -554,8 +607,26 @@ export const MailMerge = () => {
     
     dispatch(loadingOff());
   }
+  
+  const handleMailMerge = async() => {
+    
+    dispatch(loadingOn());
 
-  const handleMailMerge = () => {
+    const user = await getUser();
+    const data = {
+      username: user.username,
+    }
+
+    const response = await getSavedTemplates(data);
+    const templates = response.templates;
+
+    setSavedTemplates(templates);
+
+    setIsMailMergeModal(true);
+    dispatch(loadingOff());
+  }
+
+  const handleExport = () => {
     fetchDataForMerge();
   }
 
@@ -593,6 +664,51 @@ export const MailMerge = () => {
     setPageOffset(offset);
     dispatch(loadingOn());
     fetchData(pageOffset + 1)
+  }
+
+  const handleTemplateSelect = async(template) => {
+
+    console.log(template);
+
+    const data = {
+      origin_name : template.origin_name,
+      saved_name : template.origin_name,
+      saved_path : template.saved_path,
+      template_type : template.template_type,
+      content : '',
+      user : ''
+    }
+    const response = await getTemplateContent(data);
+    const content = response.content;
+    setSelectedTemplateContent(content.body)
+  }
+
+  const handleStartMailMerge = async () => {
+    setIsMailMerging(true)
+
+    console.log(caseData);
+    
+    // Simulate mail merge process
+    setTimeout(() => {
+      setIsMailMerging(false)
+      alert(`Mail merge started for "${selectedTemplate.name}" template!`)
+      setIsOpen(false)
+    }, 2000)
+  }
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case "Onboarding":
+        return <Users className="h-4 w-4" />
+      case "Business":
+        return <Calendar className="h-4 w-4" />
+      case "Marketing":
+        return <Mail className="h-4 w-4" />
+      case "Events":
+        return <Calendar className="h-4 w-4" />
+      default:
+        return <FileText className="h-4 w-4" />
+    }
   }
 
   return (
@@ -782,6 +898,115 @@ export const MailMerge = () => {
           </div>
         </div>
       </div>
+
+      {isMailMergeModal &&
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[80vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b">
+            <div>
+              <h2 className="text-xl font-semibold">Mail Merge Templates</h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Select a template to preview and start your mail merge campaign.
+              </p>
+            </div>
+            <button onClick={() => setIsMailMergeModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Template List */}
+            <div className="w-1/3 border-r overflow-y-auto p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-4 w-4 text-gray-500" />
+                <h3 className="font-medium text-sm text-gray-500 uppercase tracking-wide">Templates</h3>
+              </div>
+
+              <div className="space-y-3">
+                {savedTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      selectedTemplate?.id === template.id
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                    }`}
+                    onClick={() => handleTemplateSelect(template)}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium text-sm">{template.origin_name}</h4>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview Panel */}
+            <div className="flex-1 overflow-y-auto">
+              {selectedTemplateContent ? (
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Eye className="h-4 w-4 text-gray-500" />
+                    <h3 className="font-medium text-sm text-gray-500 uppercase tracking-wide">Preview</h3>
+                  </div>
+                  <div className="space-y-6">
+                    {/* Email Content */}
+                    <div className="bg-white border rounded-lg p-4">
+                      <pre className="whitespace-pre-wrap text-sm font-mono text-gray-700 leading-relaxed">
+                        {selectedTemplateContent}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium">Select a template to preview</p>
+                    <p className="text-sm">Choose a template from the list to see its content and variables</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+            <div className="text-sm text-gray-600">
+              <span>
+                "Select a template to preview"
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsMailMergeModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartMailMerge}
+                disabled={isMailMerging || !selectedTemplateContent}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isMailMerging ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Start Mail Merge
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>}
     </div>
   )
 }

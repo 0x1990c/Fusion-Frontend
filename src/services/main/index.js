@@ -114,6 +114,28 @@ export const getLastQueryDate =  async () => {
     }
 }
 
+export const getSavedTemplates =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`getSavedTemplates`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
 export const getCourts =  async () => {
         
     try {
@@ -215,6 +237,171 @@ export const alertCourtsToAdmin =  async (data) => {
         const token = localStorage.getItem('access_token') || '';
 
         const res = await fetch(API+`alertCourtsToAdmin`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const uploadTemplates = async(data) =>{
+
+    try {
+
+        const token = localStorage.getItem('access_token') || '';
+
+        const res = await fetch(API+`upload`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+            },
+            body: data
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+
+}
+
+export const getSavedShortcode =  async () => {
+        
+    try {
+
+        const token = localStorage.getItem('access_token') || '';
+
+        const res = await fetch(API+`getSavedShortcode`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify('')
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const getFields =  async () => {
+        
+    try {
+
+        const token = localStorage.getItem('access_token') || '';
+
+        const res = await fetch(API+`getFields`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify('')
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const addNewShortcode =  async (data) => {
+        
+    try {
+
+        const token = localStorage.getItem('access_token') || '';
+
+        const res = await fetch(API+`addNewShortcode`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+export const removeShortcode =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`removeShortcode`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+export const removeSavedTemplate =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`removeSavedTemplate`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+export const getTemplateContent =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`getTemplateContent`, {
             method: 'POST',
             headers: {
                 authorization: `Bearer ${token}`,
