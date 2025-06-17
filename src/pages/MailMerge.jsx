@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { saveAs } from 'file-saver';
+import { jsPDF } from "jspdf";
 import { 
   Mail, 
   FileText, 
@@ -21,14 +22,10 @@ import * as XLSX from 'xlsx';
 
 
 
-
-
 import headermark from "../../src/assets/fusion-icon.svg";
 import { getUser } from '../services/auth';
-import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent } from '../services/main';
+import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent, getCompletedTemplate } from '../services/main';
 import { loadingOff, loadingOn } from '../store/authSlice'
-
-
 
 
 
@@ -353,6 +350,7 @@ export const MailMerge = () => {
 
   const [allPageCount, setAllPageCount] = useState(1);
   const [allCases, setAllCases] = useState(0);
+  const [showedCases, setShowedCases] = useState(0);
   
   const [isMailMergeModal, setIsMailMergeModal] = useState(false);
 
@@ -367,10 +365,12 @@ export const MailMerge = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [selectedTemplateContent, setSelectedTemplateContent] = useState()
+  const [selectedTemplateName, setSelectedTemplateName] = useState()
   const [isMailMerging, setIsMailMerging] = useState(false)
 
   const [savedTemplates, setSavedTemplates] = useState([])
-  
+  const [currentMergeIndex, setCurrentMergeIndex] = useState(0);
+
   const navigate = useNavigate()
 
   const fields = [
@@ -496,6 +496,7 @@ export const MailMerge = () => {
 
     const totalCount = casesData.cases.total_count;
     setAllCases(totalCount);
+    setShowedCases(casesData.cases.data.length)
     const result = Math.floor(totalCount / 100);
     setAllPageCount(result);
     setCaseData(casesData.cases.data);
@@ -668,8 +669,6 @@ export const MailMerge = () => {
 
   const handleTemplateSelect = async(template) => {
 
-    console.log(template);
-
     const data = {
       origin_name : template.origin_name,
       saved_name : template.origin_name,
@@ -681,19 +680,64 @@ export const MailMerge = () => {
     const response = await getTemplateContent(data);
     const content = response.content;
     setSelectedTemplateContent(content.body)
+    setSelectedTemplateName(template.origin_name)
+    console.log(content.body);
   }
 
   const handleStartMailMerge = async () => {
     setIsMailMerging(true)
 
-    console.log(caseData);
-    
-    // Simulate mail merge process
-    setTimeout(() => {
-      setIsMailMerging(false)
-      alert(`Mail merge started for "${selectedTemplate.name}" template!`)
-      setIsOpen(false)
-    }, 2000)
+    const doc = new jsPDF();
+    let hasWritten = false;
+
+    for (let i = 0; i < caseData.length; i++) {
+
+      const item = caseData[i];
+      setCurrentMergeIndex(i + 1);
+      
+      const data = {
+        template_text : selectedTemplateContent,
+        case_id : item.Case?.id
+      }
+      const response = await getCompletedTemplate(data);
+
+      if (response && response.filled_template) {
+        const lines = doc.splitTextToSize(response.filled_template.trim(), 180);
+
+        if (hasWritten) {
+          doc.addPage();
+        }
+        doc.setFont("times", "normal");
+        doc.setFontSize(12);
+        doc.text(lines, 10, 20);
+        hasWritten = true;
+      }
+    }
+  
+    if (hasWritten) {
+      const baseName = selectedTemplateName.includes('.')
+      ? selectedTemplateName.substring(0, selectedTemplateName.lastIndexOf('.'))
+      : selectedTemplateName;
+  
+    // Get current date and time
+    const now = new Date();
+    const pad = num => num.toString().padStart(2, '0');
+  
+    const timestamp = 
+      now.getFullYear().toString() +
+      pad(now.getMonth() + 1) +
+      pad(now.getDate()) + '_' +
+      pad(now.getHours()) +
+      pad(now.getMinutes()) +
+      pad(now.getSeconds());
+
+      doc.save(`${baseName}_${timestamp}.pdf`);
+    } else {
+      alert("No content was available to generate PDF.");
+    }
+  
+    setIsMailMerging(false);
+    setIsOpen(false);
   }
 
   const getCategoryIcon = (category) => {
@@ -994,7 +1038,7 @@ export const MailMerge = () => {
                 {isMailMerging ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Processing...
+                    {currentMergeIndex} / {showedCases}
                   </>
                 ) : (
                   <>

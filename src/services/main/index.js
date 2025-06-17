@@ -418,3 +418,49 @@ export const getTemplateContent =  async (data) => {
         console.log(error)
     }
 }
+
+export const getCompletedTemplate =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        const res = await fetch(API+`getCompletedTemplate`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const getPurchasedCourts =  async () => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        
+        const res = await fetch(API+`getPurchasedCourts`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify('')
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+

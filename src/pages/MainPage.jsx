@@ -45,11 +45,12 @@ import { Link, useNavigate } from "react-router-dom"
 
 
 
+
 import headermark from "../../src/assets/fusion-icon.svg";
 import DateInterval from "../components/mainpage/DateInterval"
 import UserProfile from "../components/mainpage/UserProfile"
 import { getUser } from '../services/auth';
-import { getCases, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin, uploadTemplates, getSavedTemplates, getSavedShortcode, getFields, addNewShortcode, removeShortcode, removeSavedTemplate } from '../services/main';
+import { getCases, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin, uploadTemplates, getSavedTemplates, getSavedShortcode, getFields, addNewShortcode, removeShortcode, removeSavedTemplate, getPurchasedCourts } from '../services/main';
 import { checkout} from '../services/stripe';
 import { loadingOff, loadingOn } from '../store/authSlice'
 
@@ -76,6 +77,58 @@ const calculatePayment = (courtCount) => {
 }
 
 const MAX_COURTS = 3
+
+const purchasedCountiesData1 = [
+  {
+    identifier: "01",
+    name: "Adams County",
+    courts: [
+      { identifier: "01C01", courts: "Adams Circuit Court" },
+      { identifier: "01D01", courts: "Adams Superior Court" },
+    ],
+  },
+  {
+    identifier: "02",
+    name: "Allen County",
+    courts: [
+      { identifier: "02C01", courts: "Allen Circuit Court" },
+      { identifier: "02D01", courts: "Allen Superior Court 1" },
+      { identifier: "02D02", courts: "Allen Superior Court 2" },
+      { identifier: "02D03", courts: "Allen Superior Court 3" },
+    ],
+  },
+  {
+    identifier: "03",
+    name: "Bartholomew County",
+    courts: [
+      { identifier: "03C01", courts: "Bartholomew Circuit Court" },
+      { identifier: "03D01", courts: "Bartholomew Superior Court 1" },
+      { identifier: "03D02", courts: "Bartholomew Superior Court 2" },
+    ],
+  },
+  {
+    identifier: "04",
+    name: "Benton County",
+    courts: [{ identifier: "04C01", courts: "Benton Circuit Court" }],
+  },
+  {
+    identifier: "05",
+    name: "Blackford County",
+    courts: [
+      { identifier: "05C01", courts: "Blackford Circuit Court" },
+      { identifier: "05D01", courts: "Blackford Superior Court" },
+    ],
+  },
+  {
+    identifier: "06",
+    name: "Boone County",
+    courts: [
+      { identifier: "06C01", courts: "Boone Circuit Court" },
+      { identifier: "06D01", courts: "Boone Superior Court 1" },
+      { identifier: "06D02", courts: "Boone Superior Court 2" },
+    ],
+  },
+]
 
 export const MainPage = () => {
 
@@ -138,11 +191,6 @@ export const MainPage = () => {
   const [uploadStatus, setUploadStatus] = useState({ letter: null, envelope: null })
   const [previewLoading, setPreviewLoading] = useState({ letter: false, envelope: false })
 
-  const [uploadFiles, setUploadFiles] = useState([]);
-
-  const initialData = []
-
-  const [fieldNames, setFieldNames] = useState([])
   const [newPair, setNewPair] = useState({ fieldName: "", shortcode: "" })
   const [isFieldDropdownOpen, setIsFieldDropdownOpen] = useState(false)
   const [fileldLoading, setFieldLoading] = useState(false)
@@ -150,6 +198,9 @@ export const MainPage = () => {
   const [savedShortCode, setSavedShortCode] = useState([])
   const [fieldList, setFieldList] = useState([])
   
+  const [purchasedCountiesData, setPurchasedCountiesData] = useState([])
+
+
   // Template variables for replacement
   const [templateVariables, setTemplateVariables] = useState({
     defendant_name: "John Doe",
@@ -172,7 +223,7 @@ export const MainPage = () => {
   const totalCases = caseTypes.reduce((sum, court) => sum + court.count, 0)
   const navigate = useNavigate()
   // const tabs = ['Counties & Courts', 'Billing', 'Letter & Envelope Templates', 'Mail Merge Exclusions'];
-  const tabs = ['Billing', 'Letter & Envelope Templates', 'Shortcodes'];
+  const tabs = ['My Courts', 'Billing', 'Templates', 'Shortcodes'];
   const MAX_SELECTIONS = 3
 
   useEffect( () => {
@@ -212,6 +263,7 @@ export const MainPage = () => {
     fetchCourtsAndCounties();
     fetchSavedTemplates();
     fetchSavedShortcode();
+    fetchPurchasedCourts();
     setShowGetCases(false)
     setShowExportOptions(false)
     setShowMailMergeOptions(false)
@@ -294,6 +346,12 @@ export const MainPage = () => {
       organizeCases(casesData.cases);
       dispatch(loadingOff());
   };
+
+  const fetchPurchasedCourts = async() => {
+    const response = await getPurchasedCourts();
+    console.log(response.purchased_courts)
+    setPurchasedCountiesData(response.purchased_courts);
+  }
 
   const organizeCases = (casesData) => {
 
@@ -1415,6 +1473,23 @@ export const MainPage = () => {
     onClose()
   }
 
+  const [purchasedCounty, setPurchasedCounty] = useState("01")
+
+  const currentPurchasedCounty = purchasedCountiesData.find((county) => county.identifier === purchasedCounty)
+  const currentPurchasedCourts = currentPurchasedCounty ? currentPurchasedCounty.courts : []
+
+  const handleCountyChange = (e) => {
+    setPurchasedCounty(e.target.value)
+  }
+
+  const handleTabClicked = async(index) => {
+    if(index == 0){
+      const courtData = await getPurchasedCourts();    
+    }
+    setActiveTab(index)
+  }
+
+  
   return (
     <div className="bg-gray-100 min-h-screen p-4">
       <div className="flex justify-start flex-row pt-1 pb-1 box-border items-center">
@@ -1505,11 +1580,13 @@ export const MainPage = () => {
               <div className="text-center mb-4 font-bold">[{totalCases} CASES]</div>
               <div className="h-[75vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {caseTypes.map((court, index) => (
-                    <div key={index} className="flex items-center">
-                      <div className="bg-gray-400 text-center w-12 py-1">{court.count}</div>
-                      <div className="ml-2 truncate">{court.name}</div>
-                    </div>
+                  {caseTypes
+                    .filter(court => court.name && court.name.trim() !== "")
+                    .map((court, index) => (
+                      <div key={index} className="flex items-center">
+                        <div className="bg-gray-400 text-center w-12 py-1">{court.count}</div>
+                        <div className="ml-2 truncate">{court.name}</div>
+                      </div>
                   ))}
                 </div>
               </div>            
@@ -1521,7 +1598,9 @@ export const MainPage = () => {
               <div className="text-center mb-4 font-bold">[{totalCases} CASES]</div>
               <div className="h-[75vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {courts.map((court, index) => (
+                  {courts
+                  .filter(court => court.name && court.name.trim() !== "")
+                  .map((court, index) => (
                     <div key={index} className="flex items-center">
                       <div className="bg-gray-400 text-center w-12 py-1">{court.count}</div>
                       <div className="ml-2 truncate">{court.name}</div>
@@ -1537,12 +1616,15 @@ export const MainPage = () => {
               <div className="text-center mb-4 font-bold">[{totalCases} CASES]</div>
               <div className="h-[75vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {counties.map((court, index) => (
+                {counties
+                  .filter(court => court.name && court.name.trim() !== "")
+                  .map((court, index) => (
                     <div key={index} className="flex items-center">
                       <div className="bg-gray-400 text-center w-12 py-1">{court.count}</div>
                       <div className="ml-2 truncate">{court.name}</div>
                     </div>
-                  ))}
+                  ))
+                }
                 </div>
               </div>
             </>
@@ -1657,7 +1739,7 @@ export const MainPage = () => {
                     ...styles.tab,
                     ...(activeTab === index ? styles.activeTab : {}),
                   }}
-                  onClick={() => setActiveTab(index)}
+                  onClick={() => handleTabClicked(index)}
                 >
                   {tab}
                 </li>
@@ -1674,6 +1756,76 @@ export const MainPage = () => {
               <style>{scrollbarStyles}</style>
               
               {activeTab === 0 && 
+              <div className="max-w-4xl mx-auto p-6">
+                <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                  {/* Header */}
+                  <div className="p-6 border-b border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                      <h1 className="text-xl font-semibold text-gray-900">County & Court Directory</h1>
+                    </div>
+                    <p className="text-sm text-gray-600">Select a county to view all purchased courts</p>
+                  </div>
+          
+                  {/* Content */}
+                  <div className="p-6 space-y-6">
+                    {/* County Selection */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <label className="text-sm font-medium text-gray-700">Select County</label>
+                      </div>
+          
+                      <div className="relative">
+                        <select
+                          value={purchasedCounty}
+                          onChange={handleCountyChange}
+                          className="w-full p-3 pr-10 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+                        >
+                          {purchasedCountiesData.map((county) => (
+                            <option key={county.identifier} value={county.identifier}>
+                              {county.name} 
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+          
+                    {/* Courts Display */}
+                    {currentPurchasedCounty && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-gray-500" />
+                            <h3 className="text-lg font-medium text-gray-900">Courts in {currentPurchasedCounty.name}</h3>
+                          </div>
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded-md border">
+                            {currentPurchasedCourts.length} {currentPurchasedCourts.length === 1 ? "court" : "courts"}
+                          </span>
+                        </div>
+          
+                        <div className="space-y-3">
+                          {currentPurchasedCourts.map((court) => (
+                            <div
+                              key={court.identifier}
+                              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Building2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                                <div className="space-y-1">
+                                  <h4 className="font-medium text-gray-900">{court.courts}</h4>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>}
+              {activeTab === 1 && 
               <div className="w-full max-w-4xl mx-auto p-4">
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                   {/* Header */}
@@ -1947,14 +2099,14 @@ export const MainPage = () => {
                   )}
                 </div>
               </div>}
-              {activeTab === 1 && 
+              {activeTab === 2 && 
               <div className="w-full max-w-6xl mx-auto p-4">
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                   {/* Header */}
                   <div className="p-6 border-b border-gray-200">
                     <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
                       <Upload className="h-6 w-6" />
-                      Template Upload Manager
+                      Template Upload Manager(Letters & Envelopes)
                     </h1>
                     <p className="mt-2 text-sm text-gray-600">
                       Upload multiple letter and envelope templates. Supported formats: .docx (Word documents) and .txt (text
@@ -2044,7 +2196,7 @@ export const MainPage = () => {
                   </div>
                 </div>
               </div>}
-              {activeTab === 2 && 
+              {activeTab === 3 && 
               <div className="w-full max-h-[90vh] overflow-hidden flex justify-center">
                 {/* Content */}
                 <div className="w-full p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
@@ -2159,7 +2311,7 @@ export const MainPage = () => {
                   </div>
                 </div>
               </div>}
-              {activeTab === 3 && 
+              {activeTab === 4 && 
               <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-md ">
                 <label className="block font-semibold mb-1 text-blue-700">Mail Merge Save Folder</label>
                 <div className="flex items-center mb-4">
@@ -2202,7 +2354,7 @@ export const MainPage = () => {
                   </button>
                 </div>
               </div>}
-              {activeTab === 4 && 
+              {activeTab === 5 && 
               <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg">
                 <div className="flex items-center gap-2 text-lg font-medium mb-4">
                   <FileText className="h-5 w-5" />
@@ -2282,7 +2434,7 @@ export const MainPage = () => {
                   </div>
                 </div>
               </div>}
-              {activeTab === 5 && 
+              {activeTab === 6 && 
               <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-md">
                 <fieldset className="border p-4 mb-4">
                   <legend className="text-blue-700 font-semibold">Exclusion</legend>
