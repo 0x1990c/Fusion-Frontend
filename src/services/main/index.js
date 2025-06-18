@@ -159,6 +159,54 @@ export const getCourts =  async () => {
     }
 }
 
+export const getPaidCourts =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        
+        const res = await fetch(API+`getPaidCourts`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export const getPaidCounty =  async (data) => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        
+        const res = await fetch(API+`getPaidCounty`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+
 export const getIndianaCounties =  async () => {
         
     try {

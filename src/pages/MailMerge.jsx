@@ -22,10 +22,12 @@ import * as XLSX from 'xlsx';
 
 
 
+
 import headermark from "../../src/assets/fusion-icon.svg";
 import { getUser } from '../services/auth';
-import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent, getCompletedTemplate } from '../services/main';
+import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent, getCompletedTemplate, getPaidCourts, getPaidCounty } from '../services/main';
 import { loadingOff, loadingOn } from '../store/authSlice'
+
 
 
 
@@ -483,13 +485,16 @@ export const MailMerge = () => {
 
  const fetchData = async (pageOffset) => {
 
+    const user = await getUser();
+
     const data = {
       fromDate: fromDate,
       toDate: toDate,
       offset: pageOffset,
       selectedCaseTypes: selectedCaseTypes,
       selectedCourt: selectedCourt,
-      selectedCounty: selectedCounty
+      selectedCounty: selectedCounty,
+      username: user.username
     }
 
     const casesData = await getData(data);
@@ -513,7 +518,21 @@ export const MailMerge = () => {
 
     const casesData = await getCases(data);
     organizeCases(casesData.cases);
-    // dispatch(loadingOff());
+
+    const user = await getUser();
+    const userData = {
+      username: user.username,
+    }
+
+    const courtsData = await getPaidCourts(userData);
+    const courtsPaidData = courtsData.paid_courts; 
+    const courtObjects = courtsPaidData.map(name => ({ name }));
+    setCourts(courtObjects);
+
+    const countyData = await getPaidCounty(userData);
+    const countyPaidData = countyData.paid_counties; 
+    const countyObjects = countyPaidData.map(name => ({ name }));
+    setCounties(countyObjects);
   };
 
   const organizeCases = (casesData) => {
@@ -538,12 +557,8 @@ export const MailMerge = () => {
     });
 
     const caseTypes = Object.entries(caseTypeCount).map(([name, count]) => ({ name, count }));
-    const cities = Object.entries(cityCount).map(([name, count]) => ({ name, count }));
-    const courts = Object.entries(courtCount).map(([name, count]) => ({ name, count }));
 
-    setCourts(courts);
     setCaseTypes(caseTypes);
-    setCounties(cities);
   }
 
   const toggleFilter = (filter) => {
@@ -578,13 +593,16 @@ export const MailMerge = () => {
 
     dispatch(loadingOn());
 
+    const user = await getUser();
+
     const data = {
       fromDate: fromDate,
       toDate: toDate,
       offset: pageOffset,
       selectedCaseTypes: selectedCaseTypes,
       selectedCourt: selectedCourt,
-      selectedCounty: selectedCounty
+      selectedCounty: selectedCounty,
+      username: user.username
     }
 
     const mergeData = await getDataForMerge(data);
@@ -1112,13 +1130,4 @@ const styles = {
       height: '50%',
       overflow: 'auto',
     },
-  };
-  
-
-  // <td
-  //   className={`border border-gray-300 p-1 text-xs cursor-pointer ${
-  //     isExpanded ? "whitespace-normal" : "whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]"
-  //   }`}
-  //   onClick={() => setIsExpanded(!isExpanded)}
-  //   title={isExpanded ? "Click to collapse" : "Click to expand"}
-  // >{caseItem.Case.CaseType}</td>
+};

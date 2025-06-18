@@ -46,6 +46,7 @@ import { Link, useNavigate } from "react-router-dom"
 
 
 
+
 import headermark from "../../src/assets/fusion-icon.svg";
 import DateInterval from "../components/mainpage/DateInterval"
 import UserProfile from "../components/mainpage/UserProfile"
@@ -53,6 +54,7 @@ import { getUser } from '../services/auth';
 import { getCases, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin, uploadTemplates, getSavedTemplates, getSavedShortcode, getFields, addNewShortcode, removeShortcode, removeSavedTemplate, getPurchasedCourts } from '../services/main';
 import { checkout} from '../services/stripe';
 import { loadingOff, loadingOn } from '../store/authSlice'
+
 
 
 
@@ -1484,7 +1486,7 @@ export const MainPage = () => {
 
   const handleTabClicked = async(index) => {
     if(index == 0){
-      const courtData = await getPurchasedCourts();    
+      fetchPurchasedCourts();
     }
     setActiveTab(index)
   }
