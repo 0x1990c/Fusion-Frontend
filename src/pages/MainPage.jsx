@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
+
 import { 
   Download, 
   FileSpreadsheet, 
@@ -47,11 +48,24 @@ import { Link, useNavigate } from "react-router-dom"
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 import headermark from "../../src/assets/fusion-icon.svg";
 import DateInterval from "../components/mainpage/DateInterval"
 import UserProfile from "../components/mainpage/UserProfile"
 import { getUser } from '../services/auth';
-import { getCases, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin, uploadTemplates, getSavedTemplates, getSavedShortcode, getFields, addNewShortcode, removeShortcode, removeSavedTemplate, getPurchasedCourts } from '../services/main';
+import { getCases, getCountiesAllData, getIndianaCounties, getCourts, getLastQueryDate, alertCourtsToAdmin, uploadTemplates, getSavedTemplates, getSavedShortcode, getFields, addNewShortcode, removeShortcode, removeSavedTemplate, getPurchasedCourts, getCounties } from '../services/main';
 import { checkout} from '../services/stripe';
 import { loadingOff, loadingOn } from '../store/authSlice'
 
@@ -62,6 +76,35 @@ import { loadingOff, loadingOn } from '../store/authSlice'
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const getPricing = (countyCount) => {
+  switch (countyCount) {
+    case 1:
+      return 200
+    case 2:
+      return 400
+    case 3:
+      return 500
+    default:
+      return 0
+  }
+}
 
 
 
@@ -79,58 +122,6 @@ const calculatePayment = (courtCount) => {
 }
 
 const MAX_COURTS = 3
-
-const purchasedCountiesData1 = [
-  {
-    identifier: "01",
-    name: "Adams County",
-    courts: [
-      { identifier: "01C01", courts: "Adams Circuit Court" },
-      { identifier: "01D01", courts: "Adams Superior Court" },
-    ],
-  },
-  {
-    identifier: "02",
-    name: "Allen County",
-    courts: [
-      { identifier: "02C01", courts: "Allen Circuit Court" },
-      { identifier: "02D01", courts: "Allen Superior Court 1" },
-      { identifier: "02D02", courts: "Allen Superior Court 2" },
-      { identifier: "02D03", courts: "Allen Superior Court 3" },
-    ],
-  },
-  {
-    identifier: "03",
-    name: "Bartholomew County",
-    courts: [
-      { identifier: "03C01", courts: "Bartholomew Circuit Court" },
-      { identifier: "03D01", courts: "Bartholomew Superior Court 1" },
-      { identifier: "03D02", courts: "Bartholomew Superior Court 2" },
-    ],
-  },
-  {
-    identifier: "04",
-    name: "Benton County",
-    courts: [{ identifier: "04C01", courts: "Benton Circuit Court" }],
-  },
-  {
-    identifier: "05",
-    name: "Blackford County",
-    courts: [
-      { identifier: "05C01", courts: "Blackford Circuit Court" },
-      { identifier: "05D01", courts: "Blackford Superior Court" },
-    ],
-  },
-  {
-    identifier: "06",
-    name: "Boone County",
-    courts: [
-      { identifier: "06C01", courts: "Boone Circuit Court" },
-      { identifier: "06D01", courts: "Boone Superior Court 1" },
-      { identifier: "06D02", courts: "Boone Superior Court 2" },
-    ],
-  },
-]
 
 export const MainPage = () => {
 
@@ -218,6 +209,14 @@ export const MainPage = () => {
     envelope: null,
   })
 
+  const [selectedCounties, setSelectedCounties] = useState([])
+  const [selectedPaidCourts, setSelectedPaidCourts] = useState([])
+  const [purchasedCounties, setPurchasedCounties] = useState([])
+  const [purchasedCourts, setPurchasedCourts] = useState([])
+
+  const [countiesAllData, setCountiesAllData] = useState([])
+
+  
   const letterInputRef = useRef(null)
   const envelopeInputRef = useRef(null)
 
@@ -326,11 +325,9 @@ export const MainPage = () => {
   }
 
   const fetchCourtsAndCounties = async () => {
-    const courtData = await getCourts();
-    setSettingCourts(courtData.courts);
 
-    const countyData = await getIndianaCounties();
-    setSettingCounties(countyData.counties);
+    const allData = await getCountiesAllData();
+    setCountiesAllData(allData.all_data);
 
     setShowSettingsPanel(!showSettingsPanel)
     dispatch(loadingOff());
@@ -385,24 +382,6 @@ export const MainPage = () => {
     setCounties(cities);
   }
 
-  // const organizeCounties = (countyData) => {
-
-  //   if (!Array.isArray(countyData)) {
-  //     console.error("Expected countyData to be an array.");
-  //     return {
-  //       counties: [],
-  //     };
-  //   }
-
-  //   const countyCount = {};
-  //     countyData.forEach(({ Court }) => {
-  //     countyCount[Court] = (countyCount[Court] || 0) + 1;
-  //   });
-
-  //   const counties = Object.entries(countyCount).map(([name, count]) => ({ name, count }));
-  //   setSettingCounties(counties);
-  // }
-
   const priceMap = {
     1: "price_1RCBQBAZfjTlvHBo6huhKX6C",
     2: "price_1RMCV1AZfjTlvHBoTLt6xaNz",
@@ -410,9 +389,9 @@ export const MainPage = () => {
     4: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
   }
 
-  const handleSubscription = async () => {
+  const handlePurchase = async () => {
 
-    if(selectedCases.length < 1) return;
+    if(selectedCounties.length < 1 || selectedPaidCourts.length < 1) return;
     
     setShowSettingsPanel(false)
     setIsLoading(true)
@@ -420,8 +399,7 @@ export const MainPage = () => {
     
     const data = {
         email: user.username,
-        // plan_id: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
-        plan_id: priceMap[selectedCases.length]
+        plan_id: priceMap[selectedCounties.length]
     }
 
     try {
@@ -443,7 +421,7 @@ export const MainPage = () => {
 
   const handleProceedPayment = async () =>{
 
-    if(allSelectedCourts.length < 1) return;
+    if(selectedPaidCourts.length < 1 || selectedCounties.length < 1) return;
     
     setShowSettingsPanel(false)
     setIsLoading(true)
@@ -451,11 +429,11 @@ export const MainPage = () => {
     
     const data = {
         email: user.username,
-        // plan_id: "price_1RCBOlAZfjTlvHBo7dhKtU1k"
-        plan_id: priceMap[allSelectedCourts.length],
-        selectedCourts: allSelectedCourts
+        plan_id: priceMap[selectedCounties.length],
+        selectedCourts: selectedPaidCourts
     }
 
+    
     try {
         const checkout_session_url = await checkout(data);
         setIsLoading(false)
@@ -477,22 +455,14 @@ export const MainPage = () => {
 
   const toggleCaseSelection = async(countyName, courtName) => {
 
-    if (selectedCourts.includes(courtName)) {
-      // Always allow deselection
-      setSelectedCases(selectedCourts.filter((name) => name !== courtName))
-    } else {
-     
-      const user = await getUser();
+    const user = await getUser();
       const data = {
         county: countyName,
         court: courtName,
         user:user.username
       }
 
-      console.log(data);
-      
       await alertCourtsToAdmin(data);
-    }
   }
 
   const confirmDelete = () => {
@@ -1491,6 +1461,69 @@ export const MainPage = () => {
     setActiveTab(index)
   }
 
+  const handleBuyCountyChange = (e) => {
+    const countyIdentifier = e.target.value
+    if (countyIdentifier && !selectedCounties.includes(countyIdentifier) && selectedCounties.length < 3) {
+      setSelectedCounties((prev) => [...prev, countyIdentifier])
+    }
+  }
+
+  const removeCounty = (countyIdentifier) => {
+    setSelectedCounties((prev) => prev.filter((id) => id !== countyIdentifier))
+    // Remove all courts from this county from selected courts
+    const countyData = countiesAllData.find((c) => c.identifier === countyIdentifier)
+    if (countyData) {
+      const courtIds = countyData.courts.map((court) => court.identifier)
+      setSelectedPaidCourts((prev) => prev.filter((courtId) => !courtIds.includes(courtId)))
+    }
+  }
+
+  const handleCourtsToggle = (courtIdentifier, courtName, countyName) => {
+
+    toggleCaseSelection(countyName, courtName);
+
+    setSelectedPaidCourts((prev) => {
+      if (prev.includes(courtIdentifier)) {
+        return prev.filter((id) => id !== courtIdentifier)
+      } else {
+        return [...prev, courtIdentifier]
+      }
+    })
+  }
+
+  const handleSelectAllCourts = (countyIdentifier, countyName) => {
+
+    toggleCaseSelection(countyName, "All Courts");
+
+    const countyData = countiesAllData.find((c) => c.identifier === countyIdentifier)
+    if (countyData) {
+      const courtIds = countyData.courts.map((court) => court.identifier)
+      const allSelected = courtIds.every((id) => selectedPaidCourts.includes(id))
+
+      if (allSelected) {
+        // Deselect all courts in this county
+        setSelectedPaidCourts((prev) => prev.filter((courtId) => !courtIds.includes(courtId)))
+      } else {
+        // Select all courts in this county
+        setSelectedPaidCourts((prev) => [...prev.filter((courtId) => !courtIds.includes(courtId)), ...courtIds])
+      }
+    }
+  }
+
+  const getSelectedCountiesData = () => {
+    return countiesAllData.filter((county) => selectedCounties.includes(county.identifier))
+  }
+
+  const getPurchasedCountiesData = () => {
+    return countiesAllData.filter((county) => purchasedCounties.includes(county.identifier))
+  }
+
+  const getAvailableCounties = () => {
+    return countiesAllData.filter((county) => !purchasedCounties.includes(county.identifier))
+  }
+
+  const currentPrice = getPricing(selectedCounties.length)
+
   
   return (
     <div className="bg-gray-100 min-h-screen p-4">
@@ -1828,278 +1861,182 @@ export const MainPage = () => {
                 </div>
               </div>}
               {activeTab === 1 && 
-              <div className="w-full max-w-4xl mx-auto p-4">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  {/* Header */}
+              <div className="max-w-6xl mx-auto p-6 space-y-6">
+                {/* County Selection Panel */}
+                <div className="bg-white rounded-lg shadow-md border border-gray-200">
                   <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      County & Court Selection Panel
-                    </h2>
-          
-                    {/* Payment and Limit Info */}
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
-                          <DollarSign className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-900">Payment: ${currentPayment}</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
-                          <Building2 className="h-4 w-4 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-700">
-                            Selected: {allSelectedCourts.length}/{MAX_COURTS}
-                          </span>
-                        </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                      <h1 className="text-xl font-semibold text-gray-900">County & Court Selection Panel</h1>
+                    </div>
+                    <div className="flex items-center gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-blue-600" />
+                        <span>Payment: ${currentPrice}</span>
                       </div>
-          
-                      {allSelectedCourts.length >= MAX_COURTS && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg">
-                          <AlertCircle className="h-4 w-4 text-amber-600" />
-                          <span className="text-sm font-medium text-amber-800">Maximum courts selected</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-gray-600" />
+                        <span>Selected: {selectedCounties.length}/3 counties</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-gray-600" />
+                        <span>Courts: {selectedPaidCourts.length}</span>
+                      </div>
                     </div>
                   </div>
-          
+
                   <div className="p-6 space-y-6">
-                    {/* County Selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Select County
-                      </label>
+                    {/* County Selection Dropdown */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <label className="text-sm font-medium text-gray-700">Select County</label>
+                      </div>
+
                       <div className="relative">
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
-                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        <select
+                          onChange={handleBuyCountyChange}
+                          value=""
+                          disabled={selectedCounties.length >= 3}
+                          className="w-full p-3 pr-10 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <span className={selectedCounty ? "text-gray-900" : "text-gray-500"}>
-                            {selectedCounty ? countiesData[selectedCounty].name : "Choose a county..."}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-gray-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
-                          />
-                        </button>
-          
-                        {isDropdownOpen && (
-                          <div
-                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg"
-                            style={{
-                              maxHeight: `${Math.min(Object.keys(countiesData).length * 40 + 16, window.innerHeight * 0.6)}px`,
-                              overflowY:
-                                Object.keys(countiesData).length * 40 + 16 > window.innerHeight * 0.6 ? "auto" : "visible",
-                            }}
-                          >
-                            {Object.entries(countiesData).map(([key, county]) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none first:rounded-t-md last:rounded-b-md"
-                                onClick={() => {
-                                  toggleCaseSelection(key, '')
-                                  setSelectedCounty(key)
-                                  setIsDropdownOpen(false)
-                                }}
-                              >
-                                {county.name}
-                              </button>
+                          <option value="">
+                            {selectedCounties.length >= 3 ? "Maximum 3 counties selected" : "Choose a county to add"}
+                          </option>
+                          {getAvailableCounties()
+                            .filter((county) => !selectedCounties.includes(county.identifier))
+                            .map((county) => (
+                              <option key={county.identifier} value={county.identifier}>
+                                {county.name} ({county.courts.length} courts)
+                              </option>
                             ))}
-                          </div>
-                        )}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                       </div>
                     </div>
-          
-                    {/* Courts Selection */}
-                    {selectedCounty && (
+
+                    {/* Selected Counties and Courts */}
+                    {selectedCounties.length > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            Select Courts in {countiesData[selectedCounty].name}
-                          </label>
-                          <button
-                            type="button"
-                            className={`px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1 ${
-                              canSelectMoreCourts
-                                ? "border-gray-300 hover:bg-gray-50"
-                                : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                            }`}
-                            onClick={handleSelectAll}
-                            disabled={!canSelectMoreCourts && selectedCourts.length === 0}
-                          >
-                            {allSelected ? <X className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
-                            {allSelected ? "Deselect All" : "Select All"}
-                          </button>
+                          <h3 className="text-lg font-medium text-gray-900">Selected Counties & Courts</h3>
+                          {selectedPaidCourts.length > 0 && (
+                            <button
+                              onClick={handleProceedPayment}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+                            >
+                              Purchase Selected Courts (${currentPrice})
+                            </button>
+                          )}
                         </div>
-          
-                        <div className="space-y-3 max-h-64 overflow-y-auto">
-                          {availableCourts.map((court) => {
-                            const isSelected = selectedCourts.includes(court.id)
-                            const isDisabled = !isSelected && !canSelectMoreCourts
-          
+
+                        <div className="space-y-4">
+                          {getSelectedCountiesData().map((county) => {
+                            const countyCourtIds = county.courts.map((court) => court.identifier)
+                            const selectedCountyCourts = selectedPaidCourts.filter((courtId) => countyCourtIds.includes(courtId))
+                            const allCountyCourtsSelected = countyCourtIds.every((id) => selectedPaidCourts.includes(id))
+
                             return (
-                              <div
-                                key={court.id}
-                                className={`flex items-center space-x-3 p-2 rounded-lg ${
-                                  isDisabled ? "bg-gray-50 opacity-60" : "hover:bg-gray-50"
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  id={court.id}
-                                  checked={isSelected}
-                                  onChange={() => handleCourtToggle(court.id, countiesData[selectedCounty].name, court.courts)}
-                                  disabled={isDisabled}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                                <label
-                                  htmlFor={court.id}
-                                  className={`text-sm font-medium cursor-pointer flex-1 flex items-center gap-2 ${
-                                    isDisabled ? "text-gray-400 cursor-not-allowed" : "text-gray-700"
-                                  }`}
-                                >
-                                  <Building2 className="h-3.5 w-3.5 text-gray-400" />
-                                  {court.courts}
-                                </label>
+                              <div key={county.identifier} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <h4 className="font-medium text-gray-900">{county.name}</h4>
+                                    <span className="text-sm text-gray-500">
+                                      ({selectedCountyCourts.length}/{county.courts.length} courts selected)
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleSelectAllCourts(county.identifier, county.name)}
+                                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors duration-200"
+                                    >
+                                      {allCountyCourtsSelected ? "Deselect All" : "Select All"}
+                                    </button>
+                                    <button
+                                      onClick={() => removeCounty(county.identifier)}
+                                      className="p-1 text-gray-400 hover:text-red-500 transition-colors duration-200"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  {county.courts.map((court) => {
+                                    const isSelected = selectedPaidCourts.includes(court.identifier)
+                                    return (
+                                      <div
+                                        key={court.identifier}
+                                        className="flex items-center gap-3 p-3 border border-gray-200 rounded hover:bg-gray-50 transition-colors duration-200"
+                                      >
+                                        <div
+                                          className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${
+                                            isSelected ? "bg-blue-500 border-blue-500" : "border-gray-300"
+                                          }`}
+                                          onClick={() => handleCourtsToggle(court.identifier, court.courts, county.name)}
+                                        >
+                                          {isSelected && <Check className="h-3 w-3 text-white" />}
+                                        </div>
+                                        <Building2 className="h-4 w-4 text-blue-600" />
+                                        <div className="flex-1">
+                                          <span className="text-sm text-gray-900">{court.courts}</span>
+                                          
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
                             )
                           })}
                         </div>
-                      </div>
-                    )}
-          
-                    {/* Selection Summary */}
-                    {selectedCourts.length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <Filter className="h-4 w-4" />
-                          Selected Courts in Current County ({selectedCourts.length})
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedCourts.map((courtId) => {
-                            const court = availableCourts.find((c) => c.id === courtId)
-                            return (
-                              <span
-                                key={courtId}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                              >
-                                <Check className="h-3 w-3" />
-                                {court?.courts}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-          
-                    {/* Payment Breakdown */}
-                    {allSelectedCourts.length > 0 && (
-                      <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h4 className="text-sm font-medium text-blue-900 flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Payment Breakdown
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-blue-700">Selected Courts:</span>
-                            <span className="font-medium text-blue-900">{allSelectedCourts.length}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-blue-700">Rate per Selection:</span>
-                            <span className="font-medium text-blue-900">
-                              {allSelectedCourts.length === 1 && "$200"}
-                              {allSelectedCourts.length === 2 && "$200 each"}
-                              {allSelectedCourts.length === 3 && "Special rate"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between pt-2 border-t border-blue-200">
-                            <span className="font-medium text-blue-900">Total Payment:</span>
-                            <span className="font-bold text-blue-900 text-lg">${currentPayment}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-          
-                    {/* Action Buttons */}
-                    {allSelectedCourts.length > 0 && (
-                      <div className="flex gap-2 pt-4 border-t border-gray-200">
-                        <button
-                          type="button"
-                          onClick={() => handleProceedPayment()}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <Save className="h-4 w-4" />
-                          Proceed to Payment (${currentPayment})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCounty("")
-                            setSelectedCourts([])
-                            setAllSelectedCourts([])
-                            setIsDropdownOpen(false)
-                          }}
-                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Clear All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowSettingsPanel(false)}
-                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <X className="h-4 w-4" />
-                          Cancel
-                        </button>
                       </div>
                     )}
                   </div>
-          
-                  {/* Bottom Panel - All Selected Courts */}
-                  {allSelectedCourts.length > 0 && (
-                    <div className="border-t border-gray-200 bg-gray-50">
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                            <List className="h-5 w-5" />
-                            All Selected Courts ({allSelectedCourts.length}/{MAX_COURTS})
-                          </h3>
-                          <div className="text-lg font-bold text-blue-600">Total: ${currentPayment}</div>
+                </div>
+                {/* Purchased Counties Panel */}
+                {purchasedCounties.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Check className="h-5 w-5 text-green-600" />
+                        <h1 className="text-xl font-semibold text-gray-900">Purchased Courts</h1>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-green-600" />
+                          <span>Counties: {purchasedCounties.length}</span>
                         </div>
-          
-                        <div className="space-y-3 max-h-80 overflow-y-auto">
-                          {allSelectedCourts.map((court) => (
-                            <div
-                              key={`${court.countyId}-${court.id}`}
-                              className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Building2 className="h-4 w-4 text-blue-600" />
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{court.courts}</div>
-                                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    {court.county}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeCourtFromSelection(court.id)}
-                                className="p-1 text-gray-400 hover:text-red-600 focus:outline-none focus:text-red-600"
-                                title="Remove court"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ))}
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-green-600" />
+                          <span>Total Courts: {purchasedCourts.length}</span>
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        {getPurchasedCountiesData().map((county) => (
+                          <div key={county.identifier} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                            <h4 className="font-medium text-gray-900 mb-3">{county.name}</h4>
+                            <div className="space-y-2">
+                              {county.courts
+                                .filter((court) => purchasedCourts.includes(court.identifier))
+                                .map((court) => (
+                                  <div key={court.identifier} className="flex items-center gap-3 p-2 bg-white rounded">
+                                    <Building2 className="h-4 w-4 text-green-600" />
+                                    <span className="text-sm text-gray-900">{court.courts}</span>
+                                    <span className="text-xs text-gray-500">({court.identifier})</span>
+                                    <span className="ml-auto px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Active</span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>}
               {activeTab === 2 && 
               <div className="w-full max-w-6xl mx-auto p-4">
@@ -2345,141 +2282,6 @@ export const MainPage = () => {
                     className="flex items-center gap-1 text-sm text-blue-700 mt-2"
                   >
                     <Plus size={16} /> Add Template
-                  </button>
-                </div>
-                <div className='flex justify-center'>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4">
-                    Save
-                  </button>
-                  <button className="mt-6 w-1/3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 m-4" onClick={() => setShowSettingsPanel(false)}>
-                    Close
-                  </button>
-                </div>
-              </div>}
-              {activeTab === 5 && 
-              <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg">
-                <div className="flex items-center gap-2 text-lg font-medium mb-4">
-                  <FileText className="h-5 w-5" />
-                  <span>{selectedCases.length} selected</span>
-                  {selectedCases.length >= MAX_SELECTIONS && (
-                    <span className="text-sm text-amber-500 flex items-center gap-1">
-                      <AlertCircle className="h-4 w-4" />
-                      Maximum selections reached
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* Left panel with scrollable case types */}
-                  <div className="w-full md:w-[400px] bg-blue-700 text-white rounded-md overflow-hidden">
-                    <div className="p-4 border-b border-white/10">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
-                        <input
-                          type="text"
-                          placeholder="Filter case types..."
-                          value={filterText}
-                          onChange={(e) => setFilterText(e.target.value)}
-                          className="search-input pl-10"
-                        />
-                      </div>
-                    </div>
-                    {/* Custom scroll area with custom scrollbar styles */}
-                    <div className="h-[400px] w-full overflow-y-auto custom-scrollbar">
-                      <div className="p-6">
-                        {filteredCaseTypes.length > 0 ? (
-                          filteredCaseTypes.map((caseType) => (
-                            <div key={caseType.identifier} className="flex items-center mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center">
-                                  <Gavel className="h-4 w-4 mr-2" />
-                                  <span className="ml-2">{caseType.courts}</span>
-                                </div>
-                              </div>
-                              <div className="cursor-pointer" onClick={() => toggleCaseSelection(caseType.courts, '')}>
-                                {selectedCases.includes(caseType.courts) ? (
-                                  <CheckCircle2 className="h-5 w-5 text-white" />
-                                ) : (
-                                  <Circle className={`h-5 w-5 ${selectedCases.length >= MAX_SELECTIONS ? "opacity-50" : ""}`} />
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-4 text-white/70">No case types match your filter</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Right panel with price and buttons */}
-                  <div className="flex-1 flex flex-col justify-center items-center gap-6">
-                    <div className="text-3xl font-medium flex items-center">
-                      <DollarSign className="h-8 w-8" />
-                      {calculatePrice()}
-                    </div>
-                    <div className="flex gap-4">
-                      {/* Custom button instead of imported component */}
-                      <button
-                        className="bg-blue-700 hover:bg-blue-600 text-white px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
-                        onClick={() => handleSubscription()}
-                      >
-                        <ShoppingCart className="h-5 w-5" />
-                        Purchase
-                      </button>
-                      <button
-                        className="border border-blue-600 text-blue-600 hover:blue-600 px-8 py-2 rounded-md text-lg flex items-center gap-2 transition-colors"
-                        onClick={() => setShowSettingsPanel(false)}
-                      >
-                        <X className="h-5 w-5" />
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>}
-              {activeTab === 6 && 
-              <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-md">
-                <fieldset className="border p-4 mb-4">
-                  <legend className="text-blue-700 font-semibold">Exclusion</legend>
-                  {['Case Type', 'Party Name', 'Offense Description', 'Case Number'].map((type) => (
-                    <div key={type} className="flex items-center mb-2">
-                      <input
-                        type="radio"
-                        id={type}
-                        name="exclusion"
-                        value={type}
-                        checked={exclusionType === type}
-                        onChange={(e) => setExclusionType(e.target.value)}
-                        className="mr-2"
-                      />
-                      <label htmlFor={type} className="text-blue-700">{type}</label>
-                    </div>
-                  ))}
-                </fieldset>
-                <div className="flex items-center mb-3">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="border px-2 py-1 rounded-l w-full"
-                  />
-                  <button onClick={handleAddItem} className="bg-blue-500 text-white px-3 py-1 rounded-r hover:bg-blue-600">+</button>
-                </div>
-                <div className="flex">
-                  <select
-                    size="5"
-                    className="w-full border p-2"
-                    value={selectedIndex}
-                    onChange={(e) => setSelectedIndex(Number(e.target.value))}
-                  >
-                    {items.map((item, index) => (
-                      <option key={index} value={index}>{item}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleRemove}
-                    className="ml-2 bg-blue-500 text-white px-3 py-1 h-fit hover:bg-blue-600"
-                  >
-                    -
                   </button>
                 </div>
                 <div className='flex justify-center'>

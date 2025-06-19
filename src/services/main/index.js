@@ -512,3 +512,25 @@ export const getPurchasedCourts =  async () => {
     }
 }
 
+export const getCountiesAllData =  async () => {
+        
+    try {
+        const token = localStorage.getItem('access_token') || '';
+        
+        const res = await fetch(API+`getCountiesAllData`, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify('')
+        })
+        const json = await res.json();
+        if (json.detail === "Could not validate credentials") {
+            localStorage.removeItem('access_token')
+        }
+        return json;
+    } catch (error) {
+        console.log(error)
+    }
+}

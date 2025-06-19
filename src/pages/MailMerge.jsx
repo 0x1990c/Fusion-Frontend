@@ -21,14 +21,10 @@ import { Link, useNavigate, useLocation } from "react-router-dom"
 import * as XLSX from 'xlsx';
 
 
-
-
 import headermark from "../../src/assets/fusion-icon.svg";
 import { getUser } from '../services/auth';
 import { getData, getCases, getDataForMerge, getSavedTemplates, getTemplateContent, getCompletedTemplate, getPaidCourts, getPaidCounty } from '../services/main';
 import { loadingOff, loadingOn } from '../store/authSlice'
-
-
 
 
 // Filter section component
@@ -503,7 +499,9 @@ export const MailMerge = () => {
     setAllCases(totalCount);
     setShowedCases(casesData.cases.data.length)
     const result = Math.floor(totalCount / 100);
-    setAllPageCount(result);
+    // result = result == 0 ? 1 : result;
+    const allCount = result == 0 ? 1 : result;
+    setAllPageCount(allCount);
     setCaseData(casesData.cases.data);
 
     dispatch(loadingOff());
